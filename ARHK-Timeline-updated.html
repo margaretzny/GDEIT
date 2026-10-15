@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ARHK Timeline — 五线时间轴</title>
+<style>
+  :root {
+    --bg:#f6f7fb; --panel:#ffffff; --text:#1f2937; --muted:#6b7280; --line:#cfd3da; --axis:#bcbfc7;
+    --blue:#2F80ED; --green:#27AE60; --orange:#F2994A; --gray:#9CA3AF; --yellow:#E0A800; --shadow:0 8px 24px rgba(15,23,42,.08);
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; color:var(--text); background:var(--bg); }
+  .app { display:grid; grid-template-columns: minmax(900px,1fr) 330px; gap:16px; padding:16px; }
+  .board { background:var(--panel); border-radius:18px; box-shadow:var(--shadow); overflow:auto; position:relative; }
+  .toolbar { position:sticky; top:0; z-index:20; background:rgba(255,255,255,.95); backdrop-filter: blur(8px); border-bottom:1px solid #eceff4; padding:12px 16px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .toolbar h1 { font-size:18px; margin:0 12px 0 0; }
+  .toolbar button, .toolbar label.btn { border:none; background:#111827; color:#fff; padding:8px 12px; border-radius:10px; cursor:pointer; font-size:13px; }
+  .toolbar button.secondary, .toolbar label.btn.secondary { background:#e5e7eb; color:#111827; }
+  .toolbar .hint { color:var(--muted); font-size:12px; }
+  #importFile { display:none; }
+  .timeline-wrap { position:relative; padding:20px 24px 30px; min-width:1700px; }
+  .months { position:relative; height:44px; border-bottom:1px solid #eef2f7; margin-bottom:16px; }
+  .month-label { position:absolute; top:0; transform:translateX(-50%); font-size:12px; color:#374151; font-weight:700; white-space:nowrap; }
+  .month-line { position:absolute; top:22px; bottom:0; width:1px; background:#e5e7eb; }
+  .week-line { position:absolute; top:22px; bottom:0; width:1px; background:#f1f3f6; }
+  .sections { position:relative; }
+  .section { position:relative; height:160px; margin-bottom:6px; }
+  .section-title { position:absolute; left:0; top:0; width:255px; font-weight:700; font-size:16px; color:#111827; }
+  .section-sub { position:absolute; left:0; top:24px; width:255px; font-size:12px; color:#6b7280; }
+  .axis { position:absolute; left:255px; right:24px; top:76px; height:10px; background:#d2d4d8; border-radius:5px; }
+  .node { position:absolute; width:74px; height:74px; border-radius:50%; display:flex; align-items:center; justify-content:center; text-align:center; color:#fff; font-weight:700; font-size:12px; cursor:pointer; box-shadow:0 6px 14px rgba(0,0,0,.14); z-index:6; }
+  .node .inside { line-height:1.2; }
+  .status-complete { background:var(--green); }
+  .status-progress { background:var(--blue); }
+  .status-notstart { background:#7f8a98; }
+  .status-pending { background:var(--yellow); color:#fff; }
+  .status-paused { background:#9C27B0; }
+  .callout { position:absolute; width:160px; font-size:13px; line-height:1.35; color:#111827; z-index:6; }
+  .callout .title { font-weight:700; }
+  .callout .meta { color:#6b7280; font-size:12px; margin-top:3px; }
+  .leader { position:absolute; width:42px; height:48px; overflow:visible; z-index:5; }
+  .leader path { fill:none; stroke:#60a5fa; stroke-width:2; stroke-dasharray:6 5; }
+  .pending-box { position:absolute; left:255px; right:24px; bottom:8px; min-height:32px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .pending-label { font-size:12px; color:#6b7280; margin-right:2px; }
+  .pending-tag { background:#fff6db; color:#8a6700; border:1px solid #f4d88a; padding:4px 8px; border-radius:999px; font-size:12px; cursor:pointer; }
+  .cross-svg { position:absolute; inset:0; pointer-events:none; z-index:2; }
+  .cross-date-label { fill:#94a3b8; font-size:11px; }
+  .side { background:var(--panel); border-radius:18px; box-shadow:var(--shadow); padding:16px; position:sticky; top:16px; height:calc(100vh - 32px); overflow:auto; }
+  .side h2 { margin:0 0 10px; font-size:18px; }
+  .side .tip { color:#6b7280; font-size:12px; margin-bottom:12px; }
+  .field { margin-bottom:10px; }
+  .field label { display:block; font-size:12px; color:#6b7280; margin-bottom:5px; }
+  .field input, .field select, .field textarea { width:100%; border:1px solid #d9dee7; border-radius:10px; padding:9px 10px; font:inherit; }
+  .field textarea { min-height:92px; resize:vertical; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+  .actions button { border:none; padding:10px 12px; border-radius:10px; cursor:pointer; font-size:13px; }
+  .primary { background:#2563eb; color:#fff; }
+  .ghost { background:#eef2ff; color:#1e3a8a; }
+  .danger { background:#fee2e2; color:#991b1b; }
+  .muted { background:#f3f4f6; color:#111827; }
+  .legend { margin-top:18px; border-top:1px solid #edf0f5; padding-top:14px; }
+  .legend-item { display:flex; align-items:center; gap:8px; font-size:12px; color:#4b5563; margin-bottom:8px; }
+  .swatch { width:12px; height:12px; border-radius:50%; }
+  .footer-note { margin-top:14px; font-size:12px; color:#6b7280; line-height:1.5; }
+  @media (max-width: 1200px) { .app { grid-template-columns: 1fr; } .side { position:relative; top:0; height:auto; } }
+
+/* Version 2: collision-free, mobile-friendly compact nodes */
+.timeline-wrap {min-width:0; padding:20px 24px 25px;}
+.section {margin-bottom:16px; border-bottom:1px solid #edf0f5;}
+.section-title {top:8px; font-size:15px;}
+.section-sub {display:none !important;}
+.axis {top:72px; height:11px; background:#d8dce3;}
+.node {width:36px;height:36px;font-size:10px;top:60px;border:3px solid white;box-shadow:0 3px 10px #0002;}
+.task-group {position:absolute;width:194px;display:flex;flex-direction:column;gap:6px;z-index:7;}
+.task-card {cursor:pointer;min-height:48px;background:#fff;padding:5px 8px;border:1px solid #dce3ec;border-radius:8px;box-shadow:0 2px 8px #00000009;white-space:normal;overflow-wrap:anywhere;}
+.task-card:hover,.task-card:focus {border-color:#3386ee;background:#f2f7ff;outline:none;}
+.task-name {font-weight:650;font-size:12px;line-height:1.4;}
+.task-meta {color:#6b7280;font-size:11px;margin-top:2px;}
+.pending-box {bottom:4px;left:255px;max-width:1900px;}
+.months {height:54px;}
+.month-label {font-size:13px;white-space:nowrap;}
+.month-line {top:24px;background:#e4e8ee;}
+@media(max-width:700px){
+ .app {display:flex;flex-direction:column;padding:8px;gap:10px;}
+ .board,.side {border-radius:12px;}
+ .board {width:100%;}
+ .toolbar{padding:10px;gap:6px;}
+ .toolbar h1{font-size:16px;width:100%;}
+ .toolbar button,.toolbar label.btn{font-size:12px;padding:7px 9px;}
+ .toolbar .hint{width:100%;font-size:11px;}
+ .side {padding:12px;}
+ .timeline-wrap {padding-top:12px;}
+}
+
+
+.range-control{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#334155;white-space:nowrap}
+.range-control input{width:100px;accent-color:#2563eb}
+.range-control b{min-width:34px;font-size:11px;font-weight:600}
+.timeline-task-card{position:absolute;min-height:50px;z-index:6;box-shadow:none}
+.card-stem{position:absolute;width:1px;border-left:1.5px dashed #93c5fd;z-index:4;pointer-events:none}
+.section-title{width:250px;line-height:1.4}
+.section{overflow:visible}
+#timelineWrap{transform-origin:left top}
+@media(max-width:700px){.range-control input{width:73px}.toolbar .hint{order:10}.range-control{font-size:11px}}
+
+/* V4 toolbar and resizable sidebar */
+:root{--left-size:255px;--ui-font:12px}
+body{padding-top:0}
+.app{grid-template-columns:minmax(0,1fr) 330px;padding-top:116px}
+.board{overflow:auto;min-width:0;}
+.toolbar{position:fixed!important;top:0!important;left:0;right:0;z-index:200!important;display:block!important;padding:8px 14px!important;border-radius:0;box-shadow:0 3px 16px #00000012}
+.toolbar-primary,.toolbar-secondary{display:flex;gap:7px;align-items:center;flex-wrap:nowrap;min-height:42px;overflow-x:auto}
+.toolbar-primary{border-bottom:1px solid #eef0f5;padding-bottom:5px}
+.toolbar-secondary{padding-top:5px}
+.toolbar-primary h1{font-size:16px;white-space:nowrap;min-width:max-content;margin-right:8px}
+.toolbar-primary button,.toolbar-primary .btn,.toolbar-secondary button{white-space:nowrap;flex:0 0 auto}
+.toolbar-secondary .hint{flex:1 1 250px;max-width:440px;font-size:11px!important;line-height:1.35}
+.range-control{flex:0 0 auto}
+.range-control input{width:83px}
+.section-title{display:none!important}
+.axis{left:var(--left-size)!important}
+.pending-box{left:var(--left-size)!important}
+.timeline-task-card{font-size:var(--ui-font)}
+.task-name{font-size:var(--ui-font)!important;overflow-wrap:anywhere;white-space:normal}
+.task-meta{font-size:calc(var(--ui-font) - 1px)!important;white-space:normal}
+.section{overflow:visible}
+.timeline-wrap{min-width:0;transform-origin:left top}
+#leftRail{position:absolute;top:0;left:0;width:var(--left-size);z-index:10;background:#fff;border-right:1px solid #e5e7eb;box-sizing:border-box}
+.rail-row{position:relative;display:flex;align-items:flex-start;padding:13px 13px 8px 10px;border-bottom:1px solid #f0f2f5;overflow-wrap:anywhere;font-size:15px;font-weight:700}
+#leftResize{position:absolute;right:-5px;top:0;bottom:0;width:10px;cursor:col-resize;z-index:15}
+#leftResize:hover,#leftResize.dragging{background:#bfdbfe88}
+#leftResize:hover:after{content:'↔';position:absolute;top:15px;left:-10px;color:#2563eb;background:white;border:1px solid #93c5fd;border-radius:8px;padding:3px 5px}
+body.editor-collapsed .app{grid-template-columns:minmax(0,1fr)}
+body.editor-collapsed .side{display:none}
+.side{top:128px;height:calc(100vh - 144px)}
+.cross-svg{z-index:5!important;overflow:visible}
+.section .node{z-index:7}
+body.highlighted .related-node{box-shadow:0 0 0 5px #fff0ab,0 0 14px 7px #ffc84d99!important;border-color:#f9bf46!important;font-weight:800;filter:saturate(1.45)}
+body.highlighted .related-card{border:2px solid #eeb936!important;background:#fff6ca!important;box-shadow:0 0 0 3px #fff4ae,0 0 13px 3px #eab30855!important;font-weight:800}
+body.highlighted .related-card .task-name{font-weight:900!important}
+body.highlighted .cross-relation{stroke:#e4a81e!important;stroke-width:4!important;filter:drop-shadow(0px 0px 4px #facc15)}
+@media(max-width:1200px){.app{grid-template-columns:minmax(0,1fr) 330px!important}.side{position:sticky!important}}
+@media(max-width:800px){.app{display:block!important;padding-top:125px!important}.board{width:100%}.side{position:relative!important;top:8px!important;height:auto!important}body.editor-collapsed .side{display:none}.toolbar-secondary .hint{min-width:210px}}
+
+
+/* V5: fixed single-row toolbar; aligned board/sidebar */
+:root{--topbar-h:64px}
+body .toolbar{position:fixed!important;top:0!important;left:0!important;right:0!important;display:block!important;padding:8px 12px!important;z-index:999!important;overflow:hidden}
+body .toolbar-primary{display:flex!important;flex-wrap:nowrap!important;align-items:center!important;gap:8px!important;overflow-x:auto!important;border:0!important;min-height:46px;scrollbar-width:thin}
+body .toolbar-primary h1{font-size:15px!important;margin-right:8px;flex:none}
+body .toolbar-primary .hint{font-size:11px!important;color:#6b7280!important;flex:none;max-width:350px;line-height:1.3}
+body .toolbar-primary .range-control{flex:none;display:flex;align-items:center;gap:3px;white-space:nowrap;font-size:11px}
+body .toolbar-primary .range-control input{width:65px}
+body .toolbar-primary button,body .toolbar-primary .btn{padding:7px 9px;font-size:12px;flex:none}
+body #cloudStatus{font-size:11px;color:#64748b;white-space:nowrap}
+body .app{display:grid!important;grid-template-columns:minmax(0,1fr) 330px!important;gap:12px!important;align-items:start!important;padding:calc(var(--topbar-h) + 10px) 12px 12px!important}
+body .board{min-width:0!important;align-self:start!important;margin:0!important}
+body .side{position:sticky!important;top:calc(var(--topbar-h) + 10px)!important;align-self:start!important;margin:0!important;height:calc(100vh - var(--topbar-h) - 22px)!important;overflow:visible!important;padding-top:18px!important}
+body .side> :not(#edgeToggle){position:relative}
+#edgeToggle{position:absolute;z-index:999;left:-18px;top:35%;transform:translateY(-50%);width:23px;height:62px;border:1px solid #cbd5e1;border-radius:10px 0 0 10px;background:white;box-shadow:-3px 0 7px #0001;color:#334155;font-size:16px;cursor:pointer;padding:0}
+#edgeToggle:hover{background:#eaf2ff}
+body.editor-collapsed .app{grid-template-columns:minmax(0,1fr) 0!important;gap:0!important}
+body.editor-collapsed .side{display:block!important;width:0!important;padding:0!important;border:0!important;box-shadow:none!important;overflow:visible!important}
+body.editor-collapsed .side>:not(#edgeToggle){display:none!important}
+body.editor-collapsed #edgeToggle{left:-24px;top:70px;border-radius:10px 0 0 10px}
+/* cross-line paths stay visible beneath labels, never occluded by cards */
+body .cross-svg{z-index:11!important;pointer-events:none!important;overflow:visible!important}
+body .section .node{z-index:15!important}
+body .timeline-task-card{z-index:12!important;position:absolute}
+body.highlighted .cross-relation{stroke:#dca10b!important;stroke-width:5!important;stroke-dasharray:7 6!important;opacity:1!important;filter:drop-shadow(0 0 3px #ffcc25) drop-shadow(0 0 4px #facc15)!important}
+body .cross-relation{opacity:.75}
+body.highlighted .related-card{border-color:#e7ac17!important;background:#fff6d5!important;box-shadow:0 0 0 2px #ffec9b,0 0 12px #ffca3280!important}
+/* Overlay creates the connector over cards, with glow; dashed leaders remain unobtrusive. */
+@media(max-width:850px){body .app{grid-template-columns:minmax(0,1fr)!important}body .side{position:fixed!important;right:0;top:var(--topbar-h)!important;bottom:0;height:auto!important;width:min(340px,92vw)!important;z-index:500;box-shadow:-8px 0 30px #0002}body.editor-collapsed .side{width:0!important}body .toolbar-primary{overflow-x:auto!important}}
+/* cloud setup popup */
+#cloudDialog{position:fixed;z-index:2000;inset:0;background:#15213a88;display:none;align-items:center;justify-content:center;padding:14px}
+#cloudDialog.open{display:flex}
+#cloudDialog .dialog-panel{width:min(530px,100%);max-height:88vh;overflow:auto;background:white;border-radius:16px;padding:20px;box-shadow:0 25px 60px #0003}
+#cloudDialog textarea{width:100%;min-height:132px;border:1px solid #cbd5e1;border-radius:9px;padding:10px;font:12px monospace;resize:vertical}
+#cloudDialog button{cursor:pointer;padding:9px 12px;border-radius:8px;border:0;background:#111827;color:white;margin:5px 5px 5px 0}
+#cloudDialog button.light{background:#e2e8f0;color:#1e293b}
+#cloudDialog p{font-size:13px;line-height:1.55;color:#475569}
+#onlineCount{position:fixed;bottom:13px;right:17px;padding:9px 13px;border-radius:999px;background:#17345e;color:white;font-size:12px;z-index:850;box-shadow:0 4px 16px #0003;display:none}
+
+/* V6: single primary row and subtitle */
+body .toolbar{overflow:visible!important;padding-bottom:4px!important}
+body .toolbar-primary{width:100%;overflow-x:auto!important;min-height:42px;gap:6px!important}
+.toolbar-subtitle{padding:5px 4px 4px;font-size:12px;color:#667085;line-height:1.4;white-space:normal}
+body .app{padding-top:112px!important}
+.timeline-task-card{box-sizing:border-box;min-height:48px;overflow-wrap:anywhere;touch-action:none;cursor:grab}
+.timeline-task-card.dragging{cursor:grabbing;opacity:.90;z-index:60!important}
+.timeline-task-card .resize-corner{position:absolute;width:12px;height:12px;background:#fff;border:2px solid #3b82f6;border-radius:4px;z-index:10;opacity:0;touch-action:none}
+.timeline-task-card:hover .resize-corner,.timeline-task-card.manual-selected .resize-corner{opacity:1}
+.resize-corner.nw{left:-6px;top:-6px;cursor:nwse-resize}.resize-corner.ne{right:-6px;top:-6px;cursor:nesw-resize}.resize-corner.sw{left:-6px;bottom:-6px;cursor:nesw-resize}.resize-corner.se{right:-6px;bottom:-6px;cursor:nwse-resize}
+.timeline-task-card{height:auto}
+.timeline-task-card .task-name{overflow-wrap:anywhere}
+.timeline-task-card.manual-selected,.section .node.manual-selected{outline:3px solid #f2b414!important;box-shadow:0 0 0 6px #fff1a1,0 0 20px #fbbf2477!important;background:#fff7d1!important;color:#111827!important;z-index:90!important}
+.section .node.manual-selected{background:#f59e0b!important;color:white!important}
+.relation-panel{padding:12px;border:1px solid #f8d37e;background:#fffaf0;border-radius:12px;margin:12px 0}
+.relation-panel h3{margin:0 0 7px;font-size:15px}.relation-panel p{font-size:12px;color:#735c38;line-height:1.5}
+.relation-tags{display:flex;flex-wrap:wrap;gap:5px;font-size:12px}.relation-tags span{padding:4px 6px;border-radius:7px;background:#ffedaf}
+body.highlighted .explicit-related{box-shadow:0 0 0 5px #fff0ab,0 0 16px #facc1588!important;border-color:#eab308!important}
+.cross-svg{pointer-events:none!important}
+
+/* V7: side panel as separate swapping pages, independent scrolling and smooth rendering */
+body .side{overflow:hidden!important;display:flex!important;flex-direction:column!important;min-height:0!important;contain:layout style}
+body.editor-collapsed .side{overflow:visible!important}
+body .side-page{display:none;min-height:0;flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;scroll-behavior:auto;padding:2px 6px 18px 2px;transform:translateX(16px);opacity:0;transition:transform .20s ease,opacity .20s ease;will-change:transform,opacity}
+body .side-page.active-side-page{display:block;transform:translateX(0);opacity:1;animation:arhkSwap .23s ease-out}
+@keyframes arhkSwap{from{opacity:.2;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}}
+body .relation-panel{margin:0!important;padding:12px!important;border:none!important;background:#fffaf3!important}
+.relation-page-header{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap}
+.relation-page-header h3{margin:0;font-size:17px}
+#relateModeBtn.mode-active{background:#fff1a8!important;color:#7c5200!important;border:1px solid #efbe38!important}
+.section .node.manual-selected{position:absolute;z-index:100!important;outline:3px solid #fff4aa!important;box-shadow:0 0 0 6px #facb34,0 0 22px 8px #facc15aa!important;background:#edaa00!important;color:white!important}
+.timeline-task-card.manual-selected{z-index:99!important}
+/* scrolling: don't promote hundreds of static cards to composite layers */
+body .timeline-task-card:not(.dragging){will-change:auto!important}
+body .board{overscroll-behavior:contain;scroll-behavior:auto; -webkit-overflow-scrolling:touch}
+@media(prefers-reduced-motion:reduce){body .side-page{transition:none!important;animation:none!important}}
+
+/* V8: tidy control groups, smooth scrolling and visible relationship anchors */
+html,body{overflow-y:auto!important;overscroll-behavior-y:auto!important;scroll-behavior:auto!important}
+body .board{overscroll-behavior-y:auto!important;overflow-y:visible!important;overflow-x:auto!important}
+body .app{align-items:start}
+.toolbar-primary{justify-content:space-between;overflow-x:auto!important;gap:10px!important}
+.toolbar-group{display:flex;align-items:center;gap:5px;padding:3px 8px;border:1px solid #e8edf6;border-radius:12px;background:#f8fafc;flex:none}
+.toolbar-group.node-tools{margin-left:auto;background:#edf4ff;border-color:#d7e5fb}
+.group-title{font-size:11px;color:#64748b;font-weight:700;margin-right:2px}
+.toolbar-primary h1{font-size:15px!important;margin-right:8px!important}
+body .cross-svg{z-index:9!important;pointer-events:none!important}
+body .section .node,body .timeline-task-card{z-index:12!important}
+.task-connector{fill:none;stroke:#7bb6f5;stroke-width:1.8;stroke-dasharray:4 4;pointer-events:none}
+.task-connector.explicit-connector{stroke:#d7a10b;stroke-width:3}
+body.highlighted .task-connector.explicit-connector{stroke:#e2a800;stroke-width:4;filter:drop-shadow(0 0 3px #ffcc25)}
+body.highlighted .explicit-related{outline:3px solid #f0bc2d!important;box-shadow:0 0 0 6px #fff1a5,0 0 17px 6px #f7ba3388!important;background:#fff4cb!important;font-weight:800!important}
+body.highlighted .node.explicit-related{background:#d99a05!important;color:white!important}
+body .timeline-task-card{cursor:grab}
+body .side-page{overscroll-behavior-y:auto!important}
+
+
+/* V9: Apple-inspired single-layer toolbar + stable viewport editor */
+:root { --topbar-h: 94px; --v9-gap:12px; }
+html { overflow-x:hidden!important; }
+body {margin:0!important; background:#f5f5f7!important; overflow-x:hidden!important; color:#1d1d1f!important;}
+body .toolbar { position:fixed!important; top:0!important; left:0!important; right:0!important; width:100%!important; z-index:9999!important; box-sizing:border-box!important; overflow:visible!important; background:rgba(255,255,255,.96)!important; border:0!important; border-bottom:1px solid #e5e5ea!important; box-shadow:0 2px 14px rgba(0,0,0,.035)!important; padding:10px 16px 8px!important; backdrop-filter:blur(18px)!important; -webkit-backdrop-filter:blur(18px)!important;}
+body .toolbar-primary { display:flex!important; flex-wrap:wrap!important; align-items:center!important; justify-content:flex-start!important; width:100%!important; height:auto!important; min-height:36px!important; overflow-x:visible!important; overflow-y:visible!important; gap:7px 10px!important; scrollbar-width:none!important; }
+body .toolbar-primary h1 {font-size:17px!important; font-weight:700!important; letter-spacing:-.45px!important; padding:0 12px 0 0!important; margin:0!important; color:#1d1d1f!important;}
+body .toolbar-group,body .toolbar-group.node-tools {background:transparent!important; border:0!important; border-radius:0!important; padding:0!important; margin:0!important; box-shadow:none!important; display:flex!important;align-items:center!important; flex:0 1 auto!important; gap:5px!important; min-width:0!important;}
+body .toolbar-group.node-tools { margin-left:auto!important; }
+body .toolbar-group .group-title {font-size:11px!important; font-weight:600!important; color:#8e8e93!important; padding:0 4px 0 0!important;}
+body .toolbar button,body .toolbar label.btn {background:#f1f2f5!important;color:#2c2c2e!important;border:1px solid transparent!important;border-radius:10px!important;padding:8px 11px!important;font-size:12px!important;font-weight:550!important; box-shadow:none!important; transition:background .16s ease,transform .16s ease!important;white-space:nowrap!important;}
+body .toolbar button:hover,body .toolbar label.btn:hover {background:#e5e7ed!important;}
+body .toolbar button:active {transform:scale(.975)!important;}
+body .toolbar #addNodeBtn {background:#007aff!important;color:white!important;}
+body .toolbar .range-control {gap:4px!important;white-space:nowrap!important; flex:0 1 auto!important; color:#636366!important;font-size:12px!important;}
+body .toolbar .range-control input {width:clamp(48px,6vw,90px)!important;accent-color:#007aff!important;}
+body .toolbar .range-control b {font-size:11px!important;font-weight:600!important;min-width:30px!important;}
+body .toolbar-subtitle {padding:7px 1px 0!important; color:#86868b!important; font-size:11px!important; line-height:1.35!important;}
+body .app {display:grid!important; grid-template-columns:minmax(0,1fr) 330px!important; gap:var(--v9-gap)!important; align-items:start!important; padding:calc(var(--topbar-h) + var(--v9-gap)) 12px 12px!important; width:100%!important; box-sizing:border-box!important; }
+body .board {position:relative!important; width:100%!important; min-width:0!important; overflow-x:auto!important; overflow-y:visible!important; border:1px solid #e9e9ed!important; border-radius:16px!important; box-shadow:0 3px 18px rgba(0,0,0,.035)!important;}
+body .side {position:fixed!important; top:calc(var(--topbar-h) + var(--v9-gap))!important; right:12px!important; bottom:12px!important; width:330px!important; height:auto!important; max-height:calc(100dvh - var(--topbar-h) - 24px)!important; margin:0!important; padding:17px!important; border:1px solid #e9e9ed!important; border-radius:16px!important; box-shadow:0 5px 20px rgba(0,0,0,.045)!important; overflow:hidden!important; display:flex!important; flex-direction:column!important; align-self:unset!important; background:white!important; contain:none!important; }
+body .side-page {flex:1 1 auto!important; min-height:0!important; overflow-y:auto!important; overscroll-behavior-y:auto!important;}
+body.editor-collapsed .app {grid-template-columns:minmax(0,1fr)!important;}
+body.editor-collapsed .side {display:block!important; width:0!important; right:12px!important; padding:0!important; border:0!important; background:transparent!important; box-shadow:none!important;}
+body.editor-collapsed .side>:not(#edgeToggle) {display:none!important;}
+body .side h2 {font-size:20px!important;letter-spacing:-.5px!important;}
+body .side .actions button {border-radius:10px!important;}
+@media(max-width:850px) {body .app{grid-template-columns:minmax(0,1fr)!important;} body .side{z-index:800!important; width:min(330px,calc(100vw - 30px))!important;right:10px!important;box-shadow:-8px 5px 28px #0000001b!important;} body.editor-collapsed .side{width:0!important;} body .toolbar-group.node-tools{margin-left:0!important;} }
+@media(max-width:570px) {body .toolbar{padding:9px!important;} body .toolbar-primary{gap:5px!important;}body .toolbar-group .group-title{display:none!important;}body .toolbar button,body .toolbar label.btn{font-size:11px!important;padding:7px 8px!important;} body .toolbar-primary h1{width:100%;padding:0!important;}body .toolbar .range-control input{width:52px!important;} }
+
+
+/* V10 — restrained glass, semantic hierarchy, two-row toolbar */
+:root { --accent:#c76548; --ink:#222326; --canvas:#f4f5f7; --glass:rgba(255,255,255,.79); }
+body { background:var(--canvas)!important; color:var(--ink)!important; -webkit-font-smoothing:antialiased; }
+body .toolbar {background:var(--glass)!important;backdrop-filter:blur(22px) saturate(120%)!important;-webkit-backdrop-filter:blur(22px) saturate(120%)!important;border-bottom:1px solid rgba(65,65,70,.1)!important;box-shadow:0 3px 20px #11111108!important;padding:10px 20px 9px!important;}
+body .toolbar-title {display:flex;align-items:center;min-height:36px;padding:0 2px 8px;}
+body .toolbar-title h1 {font-size:20px!important;font-weight:680!important;color:#202124!important;letter-spacing:-.55px;margin:0!important;line-height:1.35;}
+body .toolbar-title .english {font-size:14px;font-weight:500;color:#85868a;letter-spacing:.05px;margin-left:10px;}
+body .toolbar-primary {display:flex!important;align-items:center!important;flex-wrap:wrap!important;gap:7px 13px!important;min-height:37px!important;}
+body .toolbar-group,body .toolbar-group.node-tools {background:transparent!important;border:none!important;box-shadow:none!important;padding:0!important;gap:6px!important;}
+body .toolbar button, body .toolbar label.btn {background:rgba(235,236,240,.85)!important;border:1px solid rgba(50,50,55,.035)!important;color:#35363a!important;border-radius:10px!important;padding:8px 11px!important;box-shadow:none!important;font-weight:550!important;}
+body .toolbar button:hover,body .toolbar label.btn:hover {background:#e3e4e8!important;}
+body .toolbar #addNodeBtn {background:#bd6a53!important;color:white!important;}
+body .toolbar .range-control input {accent-color:#bd6a53!important;}
+body .toolbar .group-title {font-weight:500!important;color:#9b9ba0!important;}
+body .toolbar-subtitle {padding:6px 2px 0!important;font-size:11px!important;color:#9b9da3!important;}
+body .board,body .side {background:rgba(255,255,255,.84)!important;box-shadow:0 12px 35px #1a1c2410!important;border:1px solid #e9e9ec!important;}
+body .side {backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);}
+body .timeline-task-card {border-color:#e1e2e6!important;border-radius:12px!important;}
+body.highlighted .related-node,body.highlighted .explicit-related.node {box-shadow:0 0 0 3px #edb96a80,0 0 11px #dc9a4990!important;outline-color:#cd8a32!important;}
+body.highlighted .related-card,body.highlighted .explicit-related.timeline-task-card {border-color:#d5aa67!important;background:#fff6e2!important;box-shadow:0 0 0 2px #ecd59f,0 0 12px #e9bd7270!important;}
+body.highlighted .cross-relation,body.highlighted .explicit-connector {stroke:#d89a40!important;filter:drop-shadow(0 0 3px #d79d52)!important;}
+@media(max-width:650px){body .toolbar-title h1{font-size:16px!important;}body .toolbar-title .english{font-size:12px;}body .toolbar{padding:8px 10px!important;}}
+
+
+/* Stable viewport controls; each group stays on the same horizontally scrollable row. */
+html,body{height:100%;overflow:hidden!important}
+body .app{height:100dvh;min-height:0;align-items:stretch!important}
+body .board{height:100%;align-self:stretch!important;overflow:auto!important;overscroll-behavior:contain!important}
+body .toolbar-primary{flex-wrap:nowrap!important;overflow-x:auto!important;overflow-y:hidden!important;justify-content:flex-start!important;padding-bottom:3px;scrollbar-width:thin}
+body .toolbar-group,body .toolbar-group.node-tools{flex:0 0 auto!important;margin:0!important}
+body .toolbar-group + .toolbar-group{border-left:1px solid #d9dce3!important;padding-left:12px!important}
+body .toolbar .group-title{display:none!important}
+body .toolbar-subtitle{display:none}
+body .timeline-task-card{height:auto;min-height:50px;line-height:1.4;overflow-wrap:anywhere}
+body .timeline-task-card .task-meta{line-height:1.4;font-weight:400}
+body .section .node{z-index:15!important}
+body #crossSvg{z-index:7!important}
+body .timeline-task-card{z-index:12!important;border-width:1px!important}
+body.highlighted .related-card{border-width:1px!important}
+body.highlighted .related-card .task-name{font-weight:650!important}
+#exportDialog{width:min(1100px,96vw);max-height:94dvh;border:1px solid #d9dce3;border-radius:18px;padding:18px;background:#f4f5f7;color:#222;box-shadow:0 20px 80px #0003}
+#exportDialog::backdrop{background:#11182788;backdrop-filter:blur(4px)}
+.export-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.export-actions strong{margin-right:auto}.export-actions button{border:0;border-radius:9px;padding:9px 13px;cursor:pointer;background:#e2e5eb}
+.export-actions .primary{background:#bd6a53;color:white}
+#exportPreview{display:block;width:100%;height:auto;background:white;box-shadow:0 2px 12px #0001}
+#exportNote{font-size:12px;color:#636366;line-height:1.6;margin:10px 0 0}
+
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="board">
+    <div class="toolbar" id="mainToolbar">
+      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span></h1></div>
+      <div class="toolbar-primary">
+        <div class="toolbar-group" aria-label="文件导入导出">
+          <span class="group-title">文件</span>
+          <button id="exportBtn" class="secondary">导出JSON</button>
+          <label class="btn secondary" for="importFile">导入JSON</label><input id="importFile" type="file" accept="application/json" />
+          <button id="pngBtn" class="secondary">导出PNG</button><button id="pdfBtn" class="secondary">导出PDF</button>
+        </div>
+        <div class="toolbar-group" aria-label="视觉调整">
+          <span class="group-title">调整</span>
+          <label class="range-control">间距 <input id="spacingRange" type="range" min="72" max="230" value="105" step="1"><b id="spacingValue">105</b></label>
+          <label class="range-control">缩放 <input id="zoomRange" type="range" min="5" max="160" value="100" step="5"><b id="zoomValue">100%</b></label>
+          <label class="range-control">字体 <input id="fontRange" type="range" min="11" max="20" value="12" step="1"><b id="fontValue">12px</b></label>
+        </div>
+        <div class="toolbar-group node-tools" aria-label="节点工具"><span class="group-title">节点</span><button id="addNodeBtn">新增节点</button><button id="highlightBtn" class="secondary">高亮关联节点</button><button id="relateModeBtn" class="secondary" type="button">编辑关联节点</button></div>
+        <div class="toolbar-group" aria-label="视图设置"><span class="group-title">视图</span><button id="fitBtn" class="secondary">适合屏幕</button><button id="resetBtn" class="secondary">恢复默认</button></div>
+      </div>
+      <div class="toolbar-subtitle">点击时间节点或黄色待定标签即可编辑。系统会自动按完成日期重新排布，并为同日节点加竖向虚线。</div>
+    </div>
+    <div class="timeline-wrap" id="timelineWrap">
+      <div class="months" id="months"></div>
+      <svg class="cross-svg" id="crossSvg"></svg>
+      <div class="sections" id="sections"></div>
+    </div>
+  </div>
+  <aside class="side" id="editSide"><button id="edgeToggle" type="button" aria-label="收起编辑栏" title="收起或展开编辑栏">◀</button>
+    <div id="nodeEditorView" class="side-page active-side-page"><h2>节点编辑</h2>
+    <div class="tip">这是简易版时间流程图：每个节点只显示“预计完成时间点”。没有填完成日期的任务会放在对应线路的“待定事项”里。</div>
+    <div id="emptyState" class="footer-note">请先点击左侧任一节点或“新增节点”。</div>
+    <div id="editor" style="display:none;">
+      <div class="row2">
+        <div class="field"><label>节点ID</label><input id="f_id" /></div>
+        <div class="field"><label>所属线路</label><select id="f_line"></select></div>
+      </div>
+      <div class="field"><label>节点标题</label><input id="f_title" /></div>
+      <div class="row2">
+        <div class="field"><label>预计完成日期</label><input id="f_date" type="date" /></div>
+        <div class="field"><label>状态</label>
+          <select id="f_status">
+            <option>已完成</option><option>进行中</option><option>未开始</option><option>待确认</option><option>暂停</option>
+          </select>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>文字位置</label>
+          <select id="f_place"><option value="above">在线上方</option><option value="below">在线下方</option></select>
+        </div>
+        <div class="field"><label>简短备注</label><input id="f_note_short" placeholder="如：预计1周/日期待定" /></div>
+      </div>
+      <div class="field"><label>详细备注</label><textarea id="f_note"></textarea></div>
+      <div class="actions">
+        <button class="primary" id="saveBtn">保存修改</button>
+        <button class="ghost" id="duplicateBtn">复制节点</button>
+        <button class="danger" id="deleteBtn">删除节点</button>
+        <button class="muted" id="cancelBtn">取消选择</button>
+      </div>
+    </div>
+    </div><section id="relationPanel" style="display:none" class="relation-panel side-page">
+      <div class="relation-page-header"><h3>编辑关联节点</h3><button id="relationBackTop" type="button" class="ghost">返回节点编辑 ↩</button></div>
+      <p>点击左侧多个日期圆点或任务文字框选择节点。选中项以金黄色高亮；点击已选项可取消选择。</p>
+      <div id="relationSelection" class="relation-tags">尚未选择节点</div>
+      <div class="actions"><button id="relationConfirm" class="primary">确定关联</button><button id="relationRemove" class="danger">解除选中节点之间的关联</button><button id="relationCancel" class="muted">退出关联编辑</button></div>
+    </section>
+    <div class="legend">
+      <div class="legend-item"><span class="swatch" style="background:#27AE60"></span> 已完成</div>
+      <div class="legend-item"><span class="swatch" style="background:#2F80ED"></span> 进行中</div>
+      <div class="legend-item"><span class="swatch" style="background:#7f8a98"></span> 未开始</div>
+      <div class="legend-item"><span class="swatch" style="background:#E0A800"></span> 待确认 / 日期待定</div>
+    </div>
+    <div class="footer-note">建议用 Chrome 打开。编辑内容会自动保存在当前浏览器；如需分享给他人，请先导出 JSON 备份。</div>
+  </aside>
+</div>
+<dialog id="exportDialog" aria-labelledby="exportHeading">
+  <div class="export-actions"><strong id="exportHeading">A4 横向 · 导出预览</strong><button id="savePngBtn" class="primary">下载 PNG</button><button id="printPdfBtn">下载 PDF</button><button id="closeExportBtn" aria-label="关闭导出预览">关闭</button></div>
+  <img id="exportPreview" alt="当前时间线的 A4 单页导出预览" />
+  <p id="exportNote"></p>
+</dialog>
+<script>
+const DEFAULT_DATA = [{"id": "A", "name": "A线｜汇丰债务和解及共同前置工作", "color": "#2F80ED", "nodes": [{"id": "A00", "title": "整体退出请示授权", "date": "2026-10-30", "status": "进行中", "note": "已启动请示初稿，尚未正式取得授权", "placement": "above"}], "pending": [{"id": "A01", "title": "商定债务和解方案", "status": "进行中", "note": "已口头初步达成一致，待正式确认函"}, {"id": "A02", "title": "正式签署和解协议", "status": "未开始", "note": "签署日期待定"}, {"id": "A03", "title": "拟定最终协议初步条款", "status": "未开始", "note": "与汇丰正式签约同步启动"}, {"id": "A04", "title": "编制收购及处置方案", "status": "未开始", "note": "预计审批需2-3周"}, {"id": "A05", "title": "支付债务清偿款", "status": "未开始", "note": "按MoU及和解协议约定执行"}]}, {"id": "B", "name": "B线｜东江环保所持欧晟揭阳股权交易", "color": "#F2994A", "nodes": [{"id": "B01", "title": "运营管理服务协议", "date": "2026-09-30", "status": "已完成", "note": "已完成签署", "placement": "above"}, {"id": "B02", "title": "候选收渣单位签约", "date": "2026-10-23", "status": "进行中", "note": "正在磋商", "placement": "below"}, {"id": "B04", "title": "取得评估审计报告", "date": "2026-10-30", "status": "未开始", "note": "对应评估审计结果", "placement": "above"}, {"id": "B03", "title": "启动股权挂牌程序", "date": "2026-11-06", "status": "未开始", "note": "可同步启动内部审批流程", "placement": "below"}, {"id": "B05", "title": "挂牌信息披露", "date": "2026-11-20", "status": "未开始", "note": "含20个工作日公示要求", "placement": "above"}, {"id": "B06", "title": "组织产权交易竞价", "date": "2026-11-27", "status": "未开始", "note": "按披露方式组织竞价", "placement": "below"}, {"id": "B07", "title": "签署产权交易合同", "date": "2026-12-04", "status": "未开始", "note": "根据评估结果签署", "placement": "above"}, {"id": "B08", "title": "交易结果公告", "date": "2026-12-11", "status": "未开始", "note": "原计划公告期5个工作日", "placement": "below"}], "pending": []}, {"id": "C", "name": "C线｜欧绿保股权及德国资产交易、最终交割", "color": "#9B51E0", "nodes": [{"id": "C01", "title": "召开评估机构董事会", "date": "2026-09-30", "status": "已完成", "note": "已召开董事会", "placement": "above"}, {"id": "C02", "title": "正式委任评估机构", "date": "2026-10-23", "status": "进行中", "note": "待尾款支付后正式启动评估", "placement": "below"}, {"id": "C05", "title": "签署最终交易协议", "date": "2026-11-17", "status": "未开始", "note": "原计划11月17日，欧绿保曾暂定11月3日", "placement": "above"}, {"id": "C03", "title": "提交最终估值报告", "date": "2026-11-19", "status": "进行中", "note": "正式委任后约6周", "placement": "below"}, {"id": "C04", "title": "协议及公证文件对齐", "date": "2026-11-19", "status": "未开始", "note": "与估值报告节点接近", "placement": "above"}, {"id": "C06", "title": "反垄断合并控制申报", "date": "2026-11-19", "status": "未开始", "note": "提交申请，不代表获批", "placement": "below"}, {"id": "C07", "title": "电子集团审议收购", "date": "2026-11-26", "status": "未开始", "note": "预计1周", "placement": "above"}, {"id": "C08", "title": "广晟集团审议收购", "date": "2026-12-04", "status": "未开始", "note": "预计1周", "placement": "below"}, {"id": "C09", "title": "香港股权变更登记", "date": "2026-12-18", "status": "未开始", "note": "预计2周", "placement": "above"}, {"id": "C10", "title": "国资备案及产权登记", "date": "2027-01-15", "status": "未开始", "note": "顺利情况下约4-5周", "placement": "below"}, {"id": "C11", "title": "完成欧绿保退出交割", "date": "2027-01-30", "status": "未开始", "note": "支付转让款并完成交割", "placement": "above"}], "pending": []}, {"id": "D", "name": "D线｜评估审计及国资审批", "color": "#27AE60", "nodes": [{"id": "D01", "title": "确定评估机构及方案", "date": "2026-09-24", "status": "已完成", "note": "已完成", "placement": "above"}, {"id": "D02", "title": "完成评估审计选聘", "date": "2026-09-24", "status": "已完成", "note": "已启动并完成选聘", "placement": "below"}, {"id": "D03", "title": "预沟通及资料预审", "date": "2026-09-28", "status": "已完成", "note": "已沟通", "placement": "above"}, {"id": "D05", "title": "中介选聘结果备案", "date": "2026-10-16", "status": "未开始", "note": "可与评估同步进行", "placement": "below"}, {"id": "D04", "title": "评估审计机构进场", "date": "2026-10-19", "status": "已完成", "note": "已进场", "placement": "above"}, {"id": "D06", "title": "提交审计初稿", "date": "2026-10-19", "status": "未开始", "note": "事务所提交并沟通", "placement": "below"}, {"id": "D07", "title": "提交评估报告初稿", "date": "2026-10-23", "status": "未开始", "note": "评估机构提交", "placement": "above"}, {"id": "D08", "title": "组织评估专家评审", "date": "2026-10-26", "status": "未开始", "note": "是否需要评审待确认", "placement": "below"}, {"id": "D10", "title": "正式出具评估审计报告", "date": "2026-10-30", "status": "未开始", "note": "与公示先后顺序需关注", "placement": "above"}, {"id": "D09", "title": "评估结果公示", "date": "2026-11-09", "status": "未开始", "note": "10个工作日", "placement": "below"}, {"id": "D11", "title": "电子集团审议评估结果", "date": "2026-11-17", "status": "未开始", "note": "是否需要过会待确认", "placement": "above"}, {"id": "D12", "title": "广晟集团审议评估结果", "date": "2026-11-24", "status": "未开始", "note": "是否需要过会待确认", "placement": "below"}, {"id": "D13", "title": "签署德国资产转让协议", "date": "2026-12-01", "status": "未开始", "note": "与股权转让协议属一揽子安排", "placement": "above"}, {"id": "D14", "title": "签署香港股权转让协议", "date": "2026-12-01", "status": "未开始", "note": "与D13同期签署", "placement": "below"}], "pending": []}, {"id": "E", "name": "E线｜欧晟揭阳整体转让", "color": "#00A3A3", "nodes": [{"id": "E01", "title": "整体挂牌请示及审批", "date": "2026-10-30", "status": "未开始", "note": "完成三家方案对比上报集团", "placement": "above"}, {"id": "E02", "title": "预挂牌", "date": "2027-02-19", "status": "未开始", "note": "原计划公示20个工作日", "placement": "below"}, {"id": "E03", "title": "正式挂牌", "date": "2027-03-19", "status": "未开始", "note": "原计划公示20个工作日", "placement": "above"}, {"id": "E04", "title": "摘牌", "date": "2027-04-02", "status": "未开始", "note": "挂牌期满后安排", "placement": "below"}, {"id": "E05", "title": "电子集团审议转让", "date": "2027-04-09", "status": "未开始", "note": "需确认是否需要过会", "placement": "above"}, {"id": "E06", "title": "广晟集团审议转让", "date": "2027-04-16", "status": "未开始", "note": "需确认是否需要过会", "placement": "below"}, {"id": "E07", "title": "签署产权交易合同", "date": "2027-04-23", "status": "未开始", "note": "签署交易合同", "placement": "above"}, {"id": "E08", "title": "完成产权变更登记", "date": "2027-05-07", "status": "未开始", "note": "最终完成节点", "placement": "below"}], "pending": []}];
+const STORAGE_KEY = 'ousheng-simple-timeline-v1';
+let state = loadState();
+let selected = null;
+const V6_STORAGE='arhk-v6-layout-relations';
+let extras=(()=>{try{return JSON.parse(localStorage.getItem(V6_STORAGE))||{}}catch(e){return {}}})();
+extras.layouts ||= {};extras.groups ||= [];
+function persistExtras(){localStorage.setItem(V6_STORAGE,JSON.stringify(extras));}
+let currentZoom=1;
+let renderFrame=0, connectorFrame=0;
+function scheduleConnectors(){if(!connectorFrame)connectorFrame=requestAnimationFrame(()=>{connectorFrame=0;drawCrossLines();});}
+function scheduleRender(){if(!renderFrame)renderFrame=requestAnimationFrame(()=>{renderFrame=0;render();});}
+let associationMode=false;const associationSelection=new Set();
+function nodeKey(line,id){return line+':'+id;}
+function splitNodeKey(key){const at=key.indexOf(':');return [key.slice(0,at),key.slice(at+1)];}
+function associationClick(line,id){
+ const key=nodeKey(line,id);if(associationSelection.has(key))associationSelection.delete(key);else associationSelection.add(key);
+ updateAssociationUI();
+}
+function updateAssociationUI(){
+ document.querySelectorAll('.manual-selected').forEach(el=>el.classList.remove('manual-selected'));
+ for(const key of associationSelection){
+  const [line,id]=splitNodeKey(key);
+  const found=findItem(line,id);
+  document.querySelectorAll('[data-line][data-id]').forEach(el=>{
+    if(el.dataset.line!==line)return;
+    const other=findItem(line,el.dataset.id);
+    if(el.dataset.id===id || (el.classList.contains('node') && found?.item.date && other?.item.date===found.item.date))el.classList.add('manual-selected');
+  });
+ }
+ const wrap=document.getElementById('relationSelection');wrap.innerHTML='';
+ for(const key of associationSelection){const sp=document.createElement('span');sp.textContent=key;wrap.appendChild(sp)}
+ if(!associationSelection.size)wrap.textContent='尚未选择节点';
+}
+function startAssociation(){
+ associationMode=true; associationSelection.clear();
+ toggleSidebar(false);
+ document.getElementById('nodeEditorView').classList.remove('active-side-page');
+ document.getElementById('relationPanel').style.display='block';
+ document.getElementById('relationPanel').classList.add('active-side-page');
+ document.getElementById('relateModeBtn').classList.add('mode-active');
+ requestAnimationFrame(()=>{render();updateAssociationUI()});
+}
+function stopAssociation(){
+ associationMode=false;associationSelection.clear();
+ document.getElementById('relationPanel').classList.remove('active-side-page');
+ document.getElementById('nodeEditorView').classList.add('active-side-page');
+ document.getElementById('relateModeBtn').classList.remove('mode-active');
+ document.getElementById('relationPanel').style.display='none';
+ updateAssociationUI();render();
+}
+function saveRelation(){const ids=[...associationSelection];if(ids.length<2){alert('请选择至少两个节点');return}extras.groups.push(ids);extras.groups=[...new Map(extras.groups.map(x=>[x.slice().sort().join('|'),x])).values()];persistExtras();stopAssociation();}
+function removeRelation(){
+ if(associationSelection.size<2){alert('请选择至少两个需要解除关联的节点');return;}
+ const ids=new Set(associationSelection);
+ extras.groups=extras.groups.map(g=>g.filter(k=>ids.has(k)).length>=2?g.filter(k=>!ids.has(k)):g).filter(g=>g.length>1);
+ persistExtras();stopAssociation();
+}
+const lineOrder = ['A','B','C','D','E'];
+const lineColors = Object.fromEntries(state.lines.map(l => [l.id, l.color]));
+const sectionsEl = document.getElementById('sections');
+const monthsEl = document.getElementById('months');
+const crossSvg = document.getElementById('crossSvg');
+const timelineWrap = document.getElementById('timelineWrap');
+const editor = document.getElementById('editor');
+const emptyState = document.getElementById('emptyState');
+
+function loadState(){
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw) return JSON.parse(raw);
+  } catch(e){}
+  return structuredClone({lines: DEFAULT_DATA});
+}
+function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); if(window.queueCloudSave) window.queueCloudSave(); }
+function deepClone(obj){ return JSON.parse(JSON.stringify(obj)); }
+function statusClass(s){
+  if(s==='已完成') return 'status-complete';
+  if(s==='进行中') return 'status-progress';
+  if(s==='待确认') return 'status-pending';
+  if(s==='暂停') return 'status-paused';
+  return 'status-notstart';
+}
+function parseDate(str){ if(!str) return null; const d = new Date(str+'T00:00:00'); return isNaN(d)?null:d; }
+function fmtDate(str){ if(!str) return '待定'; const d=parseDate(str); if(!d) return str; const m=d.getMonth()+1, day=d.getDate(); return `${m}/${String(day).padStart(2,'0')}`; }
+function fmtFull(str){ if(!str) return '日期待定'; const d=parseDate(str); if(!d) return str; return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`; }
+function getDatedNodes(){ return state.lines.flatMap(l=>l.nodes.filter(n=>n.date).map(n=>({line:l.id,node:n}))); }
+function getRange(){
+  const dated = getDatedNodes().map(x=>parseDate(x.node.date)).filter(Boolean).sort((a,b)=>a-b);
+  const start = new Date(dated[0]); start.setDate(start.getDate()-7);
+  const end = new Date(dated[dated.length-1]); end.setDate(end.getDate()+14);
+  return {start,end};
+}
+function daysBetween(a,b){ return Math.round((b-a)/(1000*60*60*24)); }
+function xForDate(dateStr, left, width, range){
+  const d = parseDate(dateStr); if(!d) return left + width - 60;
+  const total = daysBetween(range.start, range.end);
+  const offset = daysBetween(range.start, d);
+  return left + (offset/total)*width;
+}
+function renderMonths(range, left, width){
+  monthsEl.innerHTML='';
+  const total = daysBetween(range.start, range.end);
+  // weeks grid
+  let cur = new Date(range.start);
+  while(cur <= range.end){
+    const x = left + (daysBetween(range.start, cur)/total)*width;
+    const w = document.createElement('div'); w.className='week-line'; w.style.left = `${x}px`; monthsEl.appendChild(w);
+    cur.setDate(cur.getDate()+7);
+  }
+  // month labels
+  let m = new Date(range.start.getFullYear(), range.start.getMonth(), 1);
+  while(m <= range.end){
+    const x = left + (daysBetween(range.start, m)/total)*width;
+    const lab = document.createElement('div'); lab.className='month-label'; lab.style.left=`${x}px`; lab.textContent=`${m.getFullYear()}年${m.getMonth()+1}月`; monthsEl.appendChild(lab);
+    const line = document.createElement('div'); line.className='month-line'; line.style.left=`${x}px`; monthsEl.appendChild(line);
+    m = new Date(m.getFullYear(), m.getMonth()+1, 1);
+  }
+}
+function shortMeta(n){ return n.note_short || fmtFull(n.date); }
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function render(){
+  const dateKeys=[...new Set(getDatedNodes().map(x=>x.node.date))].sort();
+  const LEFT=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--left-size'))||255;
+  const COL=Number(document.getElementById('spacingRange').value);
+  timelineWrap.style.width=(LEFT+Math.max(1,dateKeys.length)*COL+140)+'px';
+  const xmap={};dateKeys.forEach((d,i)=>xmap[d]=LEFT+80+i*COL);
+  monthsEl.replaceChildren();let lastMonth='';
+  for(const d of dateKeys){
+    if(d.slice(0,7)!==lastMonth){
+      const label=document.createElement('div');label.className='month-label';label.style.left=xmap[d]+'px';label.textContent=d.slice(0,4)+'年'+Number(d.slice(5,7))+'月';monthsEl.appendChild(label);lastMonth=d.slice(0,7);
+    }
+    const tick=document.createElement('div');tick.className='month-line';tick.style.left=xmap[d]+'px';monthsEl.appendChild(tick);
+  }
+  sectionsEl.replaceChildren();
+  for(const line of [...state.lines].sort((a,b)=>lineOrder.indexOf(a.id)-lineOrder.indexOf(b.id))){
+    const sec=document.createElement('div');sec.className='section';sec.dataset.line=line.id;
+    sec.innerHTML=`<div class="section-title">${escapeHtml(line.name)}</div><div class="axis"></div>`;
+    sectionsEl.appendChild(sec);
+    const groups={};
+    [...line.nodes].sort((a,b)=>(a.date||'').localeCompare(b.date||'')).forEach(n=>(groups[n.date] ||= []).push(n));
+    for(const [date,items] of Object.entries(groups)){
+      const n=items[0],circle=document.createElement('div');
+      circle.className='node '+statusClass(items.some(n=>n.status==='未开始')?'未开始':items.some(n=>n.status==='进行中')?'进行中':n.status);
+      circle.style.left=(xmap[date]-18)+'px';circle.dataset.line=line.id;circle.dataset.id=n.id;circle.dataset.date=date;
+      circle.title=items.map(n=>`${n.id}｜${n.title}`).join('\n');circle.textContent=fmtDate(date);circle.tabIndex=0;
+      const choose=()=>{if(associationMode){const keys=items.map(n=>nodeKey(line.id,n.id));const all=keys.every(k=>associationSelection.has(k));keys.forEach(k=>all?associationSelection.delete(k):associationSelection.add(k));updateAssociationUI();}else selectNode(line.id,n.id);};
+      circle.onclick=choose;circle.onkeydown=e=>{if(e.key==='Enter')choose();};sec.appendChild(circle);
+      for(const item of items){
+        const card=document.createElement('div');card.className='task-card timeline-task-card';card.tabIndex=0;card.dataset.line=line.id;card.dataset.id=item.id;card.dataset.anchor=xmap[date];card.dataset.place=item.placement==='above'?'above':'below';
+        const saved=extras.layouts[nodeKey(line.id,item.id)];
+        const w=saved?.width||156;
+        card.style.width=w+'px';card.style.left=(saved?Math.max(LEFT+12,saved.left+(Number.isFinite(saved.anchorX)?xmap[date]-saved.anchorX:0)):xmap[date]-w/2)+'px';
+        if(saved){card.dataset.manual='true';card.style.top=saved.top+'px';if(saved.height)card.style.minHeight=saved.height+'px';}
+        const name=document.createElement('div');name.className='task-name';name.textContent=item.title;
+        const meta=document.createElement('div');meta.className='task-meta';meta.textContent=item.id+' · '+item.status;
+        card.append(name,meta);card.title=item.note||'';
+        card.onclick=()=>{if(card.dataset.justDragged)return;associationMode?associationClick(line.id,item.id):selectNode(line.id,item.id);};
+        card.onkeydown=e=>{if(e.key==='Enter'){associationMode?associationClick(line.id,item.id):selectNode(line.id,item.id);}};
+        for(const corner of ['nw','ne','sw','se']){const h=document.createElement('span');h.className='resize-corner '+corner;h.dataset.corner=corner;card.appendChild(h);}
+        initCardInteraction(card,line.id,item.id);sec.appendChild(card);
+      }
+    }
+    arrangeSection(sec);
+    const pBox=document.createElement('div');pBox.className='pending-box';
+    const label=document.createElement('span');label.className='pending-label';label.textContent='日期待定：';pBox.appendChild(label);
+    for(const item of line.pending||[]){const tag=document.createElement('span');tag.className='pending-tag';tag.textContent=item.id+' '+item.title;tag.onclick=()=>selectNode(line.id,item.id,true);pBox.appendChild(tag);}
+    if(!line.pending?.length){const empty=document.createElement('span');empty.className='pending-label';empty.textContent='无';pBox.appendChild(empty);}
+    sec.appendChild(pBox);sizeSection(sec);
+  }
+  fitContentBounds();renderLeftRail();updateAssociationUI();scheduleConnectors();
+}
+function cardBox(card){return {left:parseFloat(card.style.left)||0,top:parseFloat(card.style.top)||0,width:card.offsetWidth,height:card.offsetHeight};}
+function intersects(a,b,gap=10){return a.left<b.left+b.width+gap&&a.left+a.width+gap>b.left&&a.top<b.top+b.height+gap&&a.top+a.height+gap>b.top;}
+function clearCardPosition(card,obstacles){
+ const rect=cardBox(card),wantTop=rect.top;
+ const candidates=[wantTop,12];
+ for(const box of obstacles)candidates.push(box.top-rect.height-12,box.top+box.height+12);
+ candidates.sort((a,b)=>Math.abs(a-wantTop)-Math.abs(b-wantTop));
+ for(const top of candidates){if(top<12)continue;const box={...rect,top};if(!obstacles.some(other=>intersects(box,other))){card.style.top=top+'px';return box;}}
+ const top=Math.max(12,...obstacles.map(b=>b.top+b.height+12));card.style.top=top+'px';return {...rect,top};
+}
+function arrangeSection(sec){
+ const cards=[...sec.querySelectorAll('.timeline-task-card')],lanes={above:[],below:[]};
+ // Measure actual text/width/height, then allocate rows by horizontal occupancy.
+ for(const card of cards){
+   const side=card.dataset.place,box=cardBox(card);let i=0;
+   while(lanes[side][i]?.some(c=>{const b=cardBox(c);return box.left<b.left+b.width+12&&box.left+box.width+12>b.left;}))i++;
+   (lanes[side][i] ||= []).push(card);
+ }
+ const heights=side=>lanes[side].map(row=>Math.max(...row.map(c=>c.offsetHeight)));
+ const above=heights('above'),below=heights('below');
+ const axisY=44+above.reduce((n,h)=>n+h+12,0);sec.dataset.axisY=axisY;
+ sec.querySelector('.axis').style.top=(axisY-5.5)+'px';
+ sec.querySelectorAll('.node').forEach(n=>n.style.top=(axisY-18)+'px');
+ let y=axisY-38;
+ lanes.above.forEach((row,i)=>{y-=above[i];row.forEach(c=>{if(!c.dataset.manual)c.style.top=y+'px';});y-=12;});
+ y=axisY+38;
+ lanes.below.forEach((row,i)=>{row.forEach(c=>{if(!c.dataset.manual)c.style.top=y+'px';});y+=below[i]+12;});
+ const occupied=[{left:0,top:axisY-20,width:1e7,height:40}];
+ // Honor manual coordinates first, moving only cards that actually collide.
+ for(const card of [...cards].sort((a,b)=>Number(!!b.dataset.manual)-Number(!!a.dataset.manual))){occupied.push(clearCardPosition(card,occupied));}
+}
+function sizeSection(sec){
+ const maxBottom=Math.max(Number(sec.dataset.axisY)+28,...[...sec.querySelectorAll('.timeline-task-card')].map(c=>parseFloat(c.style.top)+c.offsetHeight));
+ const pending=sec.querySelector('.pending-box');
+ if(pending){pending.style.top=(maxBottom+20)+'px';pending.style.bottom='auto';}
+ sec.style.height=(maxBottom+32+(pending?.offsetHeight||32))+'px';
+}
+function fitContentBounds(){
+ const right=Math.max(timelineWrap.offsetWidth-24,...[...sectionsEl.querySelectorAll('.timeline-task-card')].map(c=>parseFloat(c.style.left)+c.offsetWidth+24));
+ timelineWrap.style.width=(right+24)+'px';
+}
+function localRect(el){
+ const root=timelineWrap.getBoundingClientRect(),r=el.getBoundingClientRect();
+ const scale=root.width/timelineWrap.offsetWidth||1;
+ return {left:(r.left-root.left)/scale,top:(r.top-root.top)/scale,width:r.width/scale,height:r.height/scale};
+}
+function anchor(el,edge){const r=localRect(el);return {x:r.left+r.width/2,y:r.top+(edge==='bottom'?r.height:0)};}
+function circleFor(line,id){
+ const date=findItem(line,id)?.item.date;
+ return [...sectionsEl.querySelectorAll('.node')].find(el=>el.dataset.line===line&&el.dataset.date===date);
+}
+function connector(a,b,kind){
+ const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+ const mid=(a.y+b.y)/2;
+ path.setAttribute('d',Math.abs(a.x-b.x)<.01?`M${a.x},${a.y} L${b.x},${b.y}`:`M${a.x},${a.y} C${a.x},${mid} ${b.x},${mid} ${b.x},${b.y}`);
+ path.setAttribute('class',kind);path.setAttribute('fill','none');return path;
+}
+function drawCrossLines(){
+ if(!timelineWrap.isConnected)return;
+ const fragment=document.createDocumentFragment(),byDate={};
+ crossSvg.setAttribute('width',timelineWrap.offsetWidth);crossSvg.setAttribute('height',timelineWrap.offsetHeight);
+ crossSvg.style.width=timelineWrap.offsetWidth+'px';crossSvg.style.height=timelineWrap.offsetHeight+'px';
+ sectionsEl.querySelectorAll('.related-node,.related-card').forEach(el=>el.classList.remove('related-node','related-card'));
+ sectionsEl.querySelectorAll('.node').forEach(el=>(byDate[el.dataset.date] ||= []).push(el));
+ for(const [date,els] of Object.entries(byDate)){
+   if(els.length<2)continue;
+   els.sort((a,b)=>localRect(a).top-localRect(b).top);
+   for(let i=1;i<els.length;i++){
+     const path=connector(anchor(els[i-1],'bottom'),anchor(els[i],'top'),'cross-relation');
+     path.setAttribute('stroke','#60a5fa');path.setAttribute('stroke-width','2');path.setAttribute('stroke-dasharray','6 7');fragment.appendChild(path);
+   }
+   els.forEach(el=>el.classList.add('related-node'));
+   sectionsEl.querySelectorAll('.timeline-task-card').forEach(c=>{if(findItem(c.dataset.line,c.dataset.id)?.item.date===date)c.classList.add('related-card');});
+ }
+ drawExplicitRelations(fragment);drawCardConnectors(fragment);crossSvg.replaceChildren(fragment);refreshRelationHighlights();
+}
+function drawExplicitRelations(fragment){
+ for(const group of extras.groups){
+   const circles=[...new Set(group.map(key=>circleFor(...splitNodeKey(key))).filter(Boolean))].sort((a,b)=>localRect(a).top-localRect(b).top);
+   for(let i=1;i<circles.length;i++){
+     const sameLine=circles[i-1].dataset.line===circles[i].dataset.line;
+     const a=anchor(circles[i-1],'bottom'),b=anchor(circles[i],sameLine?'bottom':'top');
+     const path=connector(a,b,'cross-relation explicit-edge');
+     if(sameLine){const outside=Math.max(a.y,b.y)+20;path.setAttribute('d',`M${a.x},${a.y} C${a.x},${outside} ${b.x},${outside} ${b.x},${b.y}`);}
+     path.setAttribute('stroke','#e0a51a');path.setAttribute('stroke-width','2.5');path.setAttribute('stroke-dasharray','5 5');fragment.appendChild(path);
+   }
+ }
+}
+function drawCardConnectors(fragment){
+ const related=new Set(extras.groups.flat());
+ for(const card of sectionsEl.querySelectorAll('.timeline-task-card')){
+   const circle=circleFor(card.dataset.line,card.dataset.id);if(!circle)continue;
+   const above=localRect(card).top+card.offsetHeight/2 < localRect(circle).top+circle.offsetHeight/2;
+   const path=connector(anchor(circle,above?'top':'bottom'),anchor(card,above?'bottom':'top'),'task-connector');
+   path.dataset.line=card.dataset.line;path.dataset.id=card.dataset.id;
+   if(related.has(nodeKey(card.dataset.line,card.dataset.id)))path.classList.add('explicit-connector');
+   fragment.appendChild(path);
+ }
+}
+function refreshRelationHighlights(){
+ const linked=new Set(extras.groups.flat());
+ document.querySelectorAll('.explicit-related').forEach(el=>el.classList.remove('explicit-related'));
+ for(const card of document.querySelectorAll('.timeline-task-card')){
+  if(linked.has(nodeKey(card.dataset.line,card.dataset.id)))card.classList.add('explicit-related');
+ }
+ for(const circle of document.querySelectorAll('.section .node')){
+  const sec=circle.closest('.section');
+  const date=findItem(circle.dataset.line,circle.dataset.id)?.item?.date;
+  if(date && [...sec.querySelectorAll('.timeline-task-card')].some(c=>linked.has(nodeKey(c.dataset.line,c.dataset.id)) && findItem(c.dataset.line,c.dataset.id)?.item?.date===date))circle.classList.add('explicit-related');
+ }
+}
+function initCardInteraction(card,line,id){
+ card.addEventListener('pointerdown',e=>{
+   if(associationMode||e.button!==0)return;
+   const corner=e.target.closest('.resize-corner'),sec=card.closest('.section');
+   const startX=e.clientX,startY=e.clientY,zoom=timelineWrap.getBoundingClientRect().width/timelineWrap.offsetWidth||1;
+   const orig=cardBox(card);let moved=false,frame=0,lastEvent;
+   card.setPointerCapture(e.pointerId);
+   const apply=()=>{
+     frame=0;if(!lastEvent)return;
+     const dx=(lastEvent.clientX-startX)/zoom,dy=(lastEvent.clientY-startY)/zoom;
+     if(Math.abs(dx)+Math.abs(dy)<=4&&!moved)return;moved=true;card.classList.add('dragging');
+     let {left,top,width,height}=orig;
+     if(corner){
+       if(corner.dataset.corner.includes('e'))width=Math.max(110,orig.width+dx);
+       if(corner.dataset.corner.includes('w')){width=Math.max(110,orig.width-dx);left=orig.left+orig.width-width;}
+       if(corner.dataset.corner.includes('s'))height=Math.max(50,orig.height+dy);
+       if(corner.dataset.corner.includes('n')){height=Math.max(50,orig.height-dy);top=orig.top+orig.height-height;}
+       card.style.width=width+'px';card.style.minHeight=height+'px';
+     }else{left+=dx;top+=dy;}
+     const rail=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--left-size'))||255;
+     card.style.left=Math.max(rail+12,left)+'px';card.style.top=Math.max(12,top)+'px';
+     const obstacles=[...sec.querySelectorAll('.timeline-task-card')].filter(c=>c!==card).map(cardBox);
+     obstacles.push({left:0,top:Number(sec.dataset.axisY)-20,width:1e7,height:40});
+     clearCardPosition(card,obstacles);sizeSection(sec);fitContentBounds();renderLeftRail();scheduleConnectors();
+   };
+   const move=ev=>{lastEvent=ev;if(!frame)frame=requestAnimationFrame(apply);};
+   const end=()=>{
+     if(frame){cancelAnimationFrame(frame);apply();}
+     card.removeEventListener('pointermove',move);card.removeEventListener('pointerup',end);card.removeEventListener('pointercancel',end);card.removeEventListener('lostpointercapture',end);
+     card.classList.remove('dragging');
+     if(moved){
+       // Normalize axes and neighboring cards before saving, so the next render
+       // uses exactly the same measurements and collision-free coordinates.
+       card.dataset.manual='true';arrangeSection(sec);sizeSection(sec);fitContentBounds();renderLeftRail();
+       extras.layouts[nodeKey(line,id)]={...cardBox(card),anchorX:Number(card.dataset.anchor)};
+       persistExtras();card.dataset.justDragged='yes';setTimeout(()=>delete card.dataset.justDragged,200);scheduleConnectors();
+     }
+   };
+   card.addEventListener('pointermove',move);card.addEventListener('pointerup',end);card.addEventListener('pointercancel',end);card.addEventListener('lostpointercapture',end);
+ });
+}
+function renderLeftRail(){
+ let rail=document.getElementById('leftRail');
+ if(!rail){rail=document.createElement('div');rail.id='leftRail';sectionsEl.appendChild(rail)}
+ const oldRows=[...rail.querySelectorAll('.rail-row')];
+ if(oldRows.length===state.lines.length){
+   let height=0;[...sectionsEl.querySelectorAll('.section')].forEach((sec,i)=>{oldRows[i].style.height=(sec.offsetHeight+16)+'px';height+=sec.offsetHeight+16;});rail.style.height=height+'px';return;
+ }
+ rail.innerHTML='';
+ let top=0;
+ [...sectionsEl.querySelectorAll('.section')].forEach(sec=>{
+   const row=document.createElement('div');row.className='rail-row';row.style.height=(sec.offsetHeight+16)+'px';
+   const line=state.lines.find(l=>l.id===sec.dataset.line);
+   row.textContent=line.name;
+   rail.appendChild(row);top+=sec.offsetHeight+16;
+ });
+ rail.style.height=top+'px';
+ const handle=document.createElement('div');handle.id='leftResize';rail.appendChild(handle);
+ handle.addEventListener('pointerdown',e=>{
+   e.preventDefault();handle.setPointerCapture(e.pointerId);handle.classList.add('dragging');
+   const sx=e.clientX, initial=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--left-size'))||255;
+   const move=ev=>{
+     const target=Math.max(130,Math.min(410,initial+(ev.clientX-sx)/(currentZoom||1)));
+     document.documentElement.style.setProperty('--left-size',target+'px');
+     document.getElementById('railWidthValue')?.remove();
+     rail.style.width=target+"px";
+   };
+   const up=()=>{saveView();render();handle.classList.remove('dragging');handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',up)};
+   handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',up);
+ });
+}
+function findItem(lineId,id){
+  const line = state.lines.find(l=>l.id===lineId); if(!line) return null;
+  const node = line.nodes.find(n=>n.id===id); if(node) return {type:'node', line, item:node};
+  const p = (line.pending||[]).find(n=>n.id===id); if(p) return {type:'pending', line, item:p};
+  return null;
+}
+function selectNode(lineId,id,isPending){
+  if(associationMode)stopAssociation();
+  if(document.body.classList.contains('editor-collapsed'))toggleSidebar(false);
+  const found = findItem(lineId,id); if(!found) return;
+  selected = {lineId,id,type:found.type};
+  emptyState.style.display='none'; editor.style.display='block';
+  document.getElementById('f_id').value = found.item.id || '';
+  document.getElementById('f_line').value = found.line.id;
+  document.getElementById('f_title').value = found.item.title || '';
+  document.getElementById('f_date').value = found.type==='node' ? (found.item.date || '') : '';
+  document.getElementById('f_status').value = found.item.status || '未开始';
+  document.getElementById('f_place').value = found.item.placement || 'above';
+  document.getElementById('f_note').value = found.item.note || '';
+  document.getElementById('f_note_short').value = found.item.note_short || '';
+}
+function clearSelection(){ selected=null; editor.style.display='none'; emptyState.style.display='block'; }
+function saveCurrent(){
+  if(!selected) return;
+  const cur = findItem(selected.lineId, selected.id); if(!cur) return;
+  const newLineId = document.getElementById('f_line').value;
+  const targetLine = state.lines.find(l=>l.id===newLineId);
+  const updated = {
+    ...cur.item,
+    id: document.getElementById('f_id').value.trim(),
+    title: document.getElementById('f_title').value.trim(),
+    date: document.getElementById('f_date').value || null,
+    status: document.getElementById('f_status').value,
+    placement: document.getElementById('f_place').value,
+    note: document.getElementById('f_note').value.trim(),
+    note_short: document.getElementById('f_note_short').value.trim(),
+  };
+  if(!validNodeId(updated.id,newLineId,cur.item))return;
+  const oldKey=nodeKey(selected.lineId,selected.id),newKey=nodeKey(newLineId,updated.id);
+  const resetLayout=cur.item.placement!==updated.placement||cur.line.id!==newLineId;
+  moveReferences(oldKey,newKey,resetLayout);
+  // remove old
+  if(cur.type==='node') cur.line.nodes = cur.line.nodes.filter(n=>n.id!==cur.item.id); else cur.line.pending = cur.line.pending.filter(n=>n.id!==cur.item.id);
+  const saveAsNode = !!updated.date;
+  if(saveAsNode) targetLine.nodes.push(updated); else { delete updated.date; (targetLine.pending ||= []).push(updated); }
+  selected = {lineId:newLineId, id:updated.id, type: saveAsNode?'node':'pending'};
+  saveState(); render(); selectNode(selected.lineId, selected.id, selected.type==='pending');
+}
+function duplicateCurrent(){
+  if(!selected) return;
+  const cur = findItem(selected.lineId, selected.id); if(!cur) return;
+  const copy = JSON.parse(JSON.stringify(cur.item));
+  copy.id = uniqueNodeId(copy.id+'_copy',cur.line);
+  copy.title = copy.title + '（副本）';
+  if(cur.type==='node') cur.line.nodes.push(copy); else cur.line.pending.push(copy);
+  saveState(); render(); selectNode(cur.line.id, copy.id, cur.type==='pending');
+}
+function deleteCurrent(){
+  if(!selected) return;
+  const cur = findItem(selected.lineId, selected.id); if(!cur) return;
+  if(!confirm(`确认删除 ${cur.item.id} 吗？`)) return;
+  moveReferences(nodeKey(cur.line.id,cur.item.id),null);
+  if(cur.type==='node') cur.line.nodes = cur.line.nodes.filter(n=>n.id!==cur.item.id); else cur.line.pending = cur.line.pending.filter(n=>n.id!==cur.item.id);
+  saveState(); render(); clearSelection();
+}
+function addNode(){
+  if(associationMode)stopAssociation();
+  toggleSidebar(false);clearSelection();
+  emptyState.style.display='none'; editor.style.display='block';
+  document.getElementById('f_id').value = 'NEW' + Math.floor(Math.random()*1000);
+  document.getElementById('f_line').value = 'A';
+  document.getElementById('f_title').value = '';
+  document.getElementById('f_date').value = '';
+  document.getElementById('f_status').value = '未开始';
+  document.getElementById('f_place').value = 'above';
+  document.getElementById('f_note').value = '';
+  document.getElementById('f_note_short').value = '';
+  selected = {lineId:'A', id:null, type:'new'};
+}
+function saveNew(){
+  const lineId = document.getElementById('f_line').value;
+  const targetLine = state.lines.find(l=>l.id===lineId);
+  const updated = {
+    id: document.getElementById('f_id').value.trim() || ('NEW'+Date.now()),
+    title: document.getElementById('f_title').value.trim() || '未命名节点',
+    date: document.getElementById('f_date').value || null,
+    status: document.getElementById('f_status').value,
+    placement: document.getElementById('f_place').value,
+    note: document.getElementById('f_note').value.trim(),
+    note_short: document.getElementById('f_note_short').value.trim(),
+  };
+  if(!validNodeId(updated.id,lineId))return;
+  if(updated.date) targetLine.nodes.push(updated); else { delete updated.date; (targetLine.pending ||= []).push(updated); }
+  selected = {lineId, id:updated.id, type: updated.date?'node':'pending'};
+  saveState(); render(); selectNode(selected.lineId, selected.id, selected.type==='pending');
+}
+function uniqueNodeId(base,line){const ids=new Set([...line.nodes,...(line.pending||[])].map(n=>n.id));let id=base,i=2;while(ids.has(id))id=base+'_'+i++;return id;}
+function validNodeId(id,lineId,except){
+ const line=state.lines.find(l=>l.id===lineId);
+ if(!id||id.includes(':')||!line){alert('请填写有效节点ID（不能包含冒号）及线路');return false;}
+ if([...line.nodes,...(line.pending||[])].some(n=>n!==except&&n.id===id)){alert('同一线路内节点ID不能重复');return false;}
+ return true;
+}
+function moveReferences(oldKey,newKey,resetLayout=false){
+ if(newKey&&oldKey!==newKey&&extras.layouts[oldKey]&&!resetLayout)extras.layouts[newKey]=extras.layouts[oldKey];
+ if(oldKey!==newKey||resetLayout)delete extras.layouts[oldKey];
+ extras.groups=extras.groups.map(g=>[...new Set(g.flatMap(k=>k===oldKey?(newKey?[newKey]:[]):[k]))]).filter(g=>g.length>1);
+ persistExtras();
+}
+function readView(){return {spacing:Number(document.getElementById('spacingRange').value),font:Number(document.getElementById('fontRange').value),zoom:Number(document.getElementById('zoomRange').value),leftWidth:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--left-size'))||255,highlighted:document.body.classList.contains('highlighted'),editorCollapsed:document.body.classList.contains('editor-collapsed')};}
+function saveView(){extras.view=readView();persistExtras();}
+function restoreView(view={}){
+ view=view&&typeof view==='object'?view:{};
+ for(const [key,id,min,max] of [['spacing','spacing',72,230],['font','font',11,20],['zoom','zoom',5,160]]){
+   const v=Number(view[key]);if(Number.isFinite(v)&&v>=min&&v<=max)document.getElementById(id+'Range').value=v;
+ }
+ if(Number.isFinite(view.leftWidth))document.documentElement.style.setProperty('--left-size',Math.max(130,Math.min(410,view.leftWidth))+'px');
+ document.getElementById('spacingValue').textContent=document.getElementById('spacingRange').value;
+ document.getElementById('fontValue').textContent=document.getElementById('fontRange').value+'px';
+ document.documentElement.style.setProperty('--ui-font',document.getElementById('fontRange').value+'px');
+ document.body.classList.toggle('highlighted',!!view.highlighted);
+ document.body.classList.toggle('editor-collapsed',!!view.editorCollapsed);
+ document.getElementById('highlightBtn').textContent=view.highlighted?'关闭关联高亮':'高亮关联节点';
+ const collapsed=!!view.editorCollapsed,b=document.getElementById('edgeToggle');b.textContent=collapsed?'▶':'◀';b.setAttribute('aria-label',collapsed?'展开编辑栏':'收起编辑栏');
+ applyZoom(false);
+}
+function exportJson(){
+ const backup={...state,formatVersion:2,extras:{layouts:extras.layouts,groups:extras.groups},view:readView()};
+ saveBlob(new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}),'ARHK-Timeline.json');
+}
+function validateBackup(data){
+ if(!data||!Array.isArray(data.lines)||data.lines.length!==5)throw new Error('需要完整的ABCDE五条线路');
+ const lineIds=new Set(),keys=new Set();
+ for(const line of data.lines){
+   if(!lineOrder.includes(line.id)||lineIds.has(line.id)||!Array.isArray(line.nodes)||(line.pending!==undefined&&!Array.isArray(line.pending)))throw new Error('线路格式或ID无效');
+   lineIds.add(line.id);
+   for(const [items,dated] of [[line.nodes,true],[line.pending||[],false]])for(const n of items){
+     if(!n||typeof n.id!=='string'||!n.id.trim()||n.id.includes(':')||typeof n.title!=='string')throw new Error('节点ID或标题无效');
+     const key=nodeKey(line.id,n.id);if(keys.has(key))throw new Error('节点ID重复：'+key);keys.add(key);
+     if(dated&&(!/^\d{4}-\d{2}-\d{2}$/.test(n.date||'')||!parseDate(n.date)||fmtFull(n.date).replaceAll('.','-')!==n.date))throw new Error('节点日期无效：'+key);
+   }
+ }
+ const layouts=data.extras?.layouts||{},groups=data.extras?.groups||[];
+ if(!layouts||typeof layouts!=='object'||Array.isArray(layouts)||!Array.isArray(groups))throw new Error('布局或关联格式无效');
+ for(const [key,v] of Object.entries(layouts)){
+   if(!keys.has(key))continue;
+   if(!v||!['left','top','width'].every(k=>Number.isFinite(v[k]))||v.left<0||v.top<0||v.width<110||Math.max(v.left,v.top,v.width)>100000||(v.height!==undefined&&(!Number.isFinite(v.height)||v.height<0||v.height>100000))||(v.anchorX!==undefined&&!Number.isFinite(v.anchorX)))throw new Error('卡片布局无效：'+key);
+ }
+ if(groups.some(g=>!Array.isArray(g)||g.some(k=>typeof k!=='string')))throw new Error('关联格式无效');
+ return {layouts:Object.fromEntries(Object.entries(layouts).filter(([k])=>keys.has(k))),groups:groups.map(g=>[...new Set(g.filter(k=>keys.has(k)))]).filter(g=>g.length>1)};
+}
+function importJson(file){
+ const reader=new FileReader();
+ reader.onload=()=>{
+   try{
+     const data=JSON.parse(reader.result),loaded=validateBackup(data);
+     if(!confirm('导入将替换当前浏览器中的时间线。请确认已导出备份。'))return;
+     // Validate the complete payload before changing either storage bucket.
+     const {formatVersion,extras:ignored,view,...business}=data;
+     const oldState=state,oldExtras=extras;
+     try{state=business;extras={...loaded,view:view||{}};saveState();persistExtras();}
+     catch(error){state=oldState;extras=oldExtras;saveState();persistExtras();throw error;}
+     associationMode=false;associationSelection.clear();stopAssociation();restoreView(extras.view);initEditorLines();render();clearSelection();alert('导入成功');
+   }catch(error){alert('导入失败：'+error.message);}
+ };
+ reader.readAsText(file,'utf-8');
+}
+function initEditorLines(){
+  const sel = document.getElementById('f_line');
+  sel.innerHTML = state.lines.map(l=>`<option value="${l.id}">${l.id}线</option>`).join('');
+}
+window.addEventListener('resize',scheduleConnectors,{passive:true});
+document.getElementById('saveBtn').onclick = ()=>{ if(selected?.type==='new') saveNew(); else saveCurrent(); };
+document.getElementById('duplicateBtn').onclick = duplicateCurrent;
+document.getElementById('deleteBtn').onclick = deleteCurrent;
+document.getElementById('cancelBtn').onclick = clearSelection;
+document.getElementById('addNodeBtn').onclick = addNode;
+document.getElementById('resetBtn').onclick = ()=>{ if(confirm('确认恢复为默认数据？当前浏览器内的修改将丢失。')){ state = structuredClone({lines: DEFAULT_DATA}); extras={layouts:{},groups:[]};saveState();persistExtras();restoreView({spacing:105,font:12,zoom:100,leftWidth:255});stopAssociation();render();clearSelection();initEditorLines(); }};
+document.getElementById('exportBtn').onclick = exportJson;
+document.getElementById('importFile').addEventListener('change', (e)=>{ const f=e.target.files[0]; if(f) importJson(f); e.target.value='';});
+document.getElementById('relateModeBtn').onclick=startAssociation;
+document.getElementById('relationConfirm').onclick=saveRelation;
+document.getElementById('relationRemove').onclick=removeRelation;
+document.getElementById('relationCancel').onclick=stopAssociation;
+document.getElementById('relationBackTop').onclick=stopAssociation;
+initEditorLines();restoreView(extras.view);render();
+
+function applyZoom(persist=true){
+ currentZoom=Number(document.getElementById('zoomRange').value)/100;
+ timelineWrap.style.zoom=currentZoom;document.getElementById('zoomValue').textContent=Math.round(currentZoom*100)+'%';
+ if(persist)saveView();scheduleConnectors();
+}
+document.getElementById('spacingRange').addEventListener('input',e=>{document.getElementById('spacingValue').textContent=e.target.value;saveView();scheduleRender();});
+document.getElementById('zoomRange').addEventListener('input',()=>applyZoom());
+document.getElementById('fitBtn').onclick=()=>{
+ const available=document.querySelector('.board').clientWidth-24;
+ document.getElementById('zoomRange').value=Math.max(5,Math.floor(Math.min(1,available/timelineWrap.offsetWidth)*100/5)*5);applyZoom();
+};
+
+function saveBlob(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);}
+let exportImage='',exportCanvas=null,exportBusy=false;
+async function snapshotA4(){
+ await document.fonts.ready;
+ if(renderFrame){cancelAnimationFrame(renderFrame);renderFrame=0;render();}
+ if(connectorFrame){cancelAnimationFrame(connectorFrame);connectorFrame=0;}
+ drawCrossLines();
+ // Freeze computed styles instead of rebuilding tasks or guessing their geometry.
+ const clone=timelineWrap.cloneNode(true),source=[timelineWrap,...timelineWrap.querySelectorAll('*')],target=[clone,...clone.querySelectorAll('*')];
+ source.forEach((el,i)=>{
+   const css=getComputedStyle(el),dest=target[i];dest.removeAttribute('style');
+   for(const prop of css)dest.style.setProperty(prop,css.getPropertyValue(prop));
+   dest.style.setProperty('animation','none');dest.style.setProperty('transition','none');dest.style.setProperty('caret-color','transparent');
+ });
+ clone.querySelectorAll('.resize-corner,#leftResize').forEach(el=>el.remove());
+ clone.style.zoom='1';clone.style.transform='none';clone.style.position='relative';clone.style.margin='0';clone.style.overflow='visible';
+ // Extra padding includes gold glows and any text extending beyond its box.
+ const heading=document.querySelector('.toolbar-title'),titleHeight=heading.offsetHeight;
+ const width=timelineWrap.offsetWidth+32,height=timelineWrap.offsetHeight+32+titleHeight;
+ clone.style.width=timelineWrap.offsetWidth+'px';clone.style.height=timelineWrap.offsetHeight+'px';
+ const host=document.createElementNS('http://www.w3.org/1999/xhtml','div');host.setAttribute('style','padding:16px;background:white;box-sizing:border-box;width:'+width+'px;height:'+height+'px');const title=heading.cloneNode(true);
+ const titleSources=[heading,...heading.querySelectorAll('*')],titleTargets=[title,...title.querySelectorAll('*')];
+ titleSources.forEach((el,i)=>{const css=getComputedStyle(el);for(const prop of css)titleTargets[i].style.setProperty(prop,css.getPropertyValue(prop));});
+ title.style.width=timelineWrap.offsetWidth+'px';title.style.height=titleHeight+'px';
+ host.append(title,clone);
+ const markup=new XMLSerializer().serializeToString(host);
+ const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><foreignObject width="100%" height="100%">${markup}</foreignObject></svg>`;
+ const img=new Image();
+ await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(new Error('当前浏览器无法生成画面快照，请使用最新版 Chrome'));img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);});
+ // A4 landscape at 300 dpi. Uniform fitting preserves every relative position,
+ // size, connector and highlight. Zoom is a uniform viewport transform and cancels
+ // out when the complete content is fitted to one page.
+ const canvas=document.createElement('canvas');canvas.width=3508;canvas.height=2480;
+ const context=canvas.getContext('2d');if(!context)throw new Error('无法创建导出画布');
+ context.fillStyle='#fff';context.fillRect(0,0,canvas.width,canvas.height);
+ const margin=94,scale=Math.min((canvas.width-margin*2)/width,(canvas.height-margin*2)/height);
+ const dw=width*scale,dh=height*scale;context.drawImage(img,(canvas.width-dw)/2,(canvas.height-dh)/2,dw,dh);
+ return {canvas,url:canvas.toDataURL('image/png'),fontPt:Number(document.getElementById('fontRange').value)*scale*72/300};
+}
+async function openExportPreview(){
+ if(exportBusy)return;exportBusy=true;
+ const buttons=[document.getElementById('pngBtn'),document.getElementById('pdfBtn')];buttons.forEach(b=>b.disabled=true);
+ try{
+   const result=await snapshotA4();exportImage=result.url;exportCanvas=result.canvas;
+   document.getElementById('exportPreview').src=exportImage;
+   document.getElementById('exportNote').textContent=`全部线路、待定事项、卡片及关联线已按当前布局等比例放入一张 A4 横向页面。预计任务字号约 ${result.fontPt.toFixed(1)} pt；内容较多时自动缩小。PNG 与 PDF 使用同一张画面，PDF 固定为一张 A4 横向页面。`;
+   document.getElementById('exportDialog').showModal();
+ }catch(error){alert('导出失败：'+error.message);}finally{exportBusy=false;buttons.forEach(b=>b.disabled=false);}
+}
+function exportPng(){return openExportPreview();}
+function exportPdf(){return openExportPreview();}
+document.getElementById('closeExportBtn').onclick=()=>document.getElementById('exportDialog').close();
+document.getElementById('savePngBtn').onclick=async()=>{
+ if(!exportImage)return;const blob=await (await fetch(exportImage)).blob();saveBlob(blob,'ARHK-Timeline-A4.png');
+};
+
+async function singlePagePdf(rgb,width,height){
+ // Lossless RGB image in a one-page PDF: identical pixels to the PNG preview.
+ const compressed=new Uint8Array(await new Response(new Blob([rgb]).stream().pipeThrough(new CompressionStream('deflate'))).arrayBuffer());
+ const encode=text=>new TextEncoder().encode(text),parts=[],offsets=[0];let length=0;
+ const append=bytes=>{parts.push(bytes);length+=bytes.length;};
+ const text=value=>append(encode(value));
+ const object=(id,body)=>{offsets[id]=length;text(`${id} 0 obj\n${body}\nendobj\n`);};
+ text('%PDF-1.4\n');append(new Uint8Array([37,226,227,207,211,10]));
+ object(1,'<< /Type /Catalog /Pages 2 0 R >>');
+ object(2,'<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
+ object(3,'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 841.889764 595.275591] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>');
+ offsets[4]=length;
+ text(`4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${width} /Height ${height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /Length ${compressed.length} >>\nstream\n`);
+ append(compressed);text('\nendstream\nendobj\n');
+ const content='q\n841.889764 0 0 595.275591 0 0 cm\n/Im0 Do\nQ\n';
+ object(5,`<< /Length ${encode(content).length} >>\nstream\n${content}endstream`);
+ const xref=length;text('xref\n0 6\n0000000000 65535 f \n');
+ for(let id=1;id<=5;id++)text(String(offsets[id]).padStart(10,'0')+' 00000 n \n');
+ text(`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+ return new Blob(parts,{type:'application/pdf'});
+}
+document.getElementById('printPdfBtn').onclick=async()=>{
+ if(!exportCanvas)return;
+ const button=document.getElementById('printPdfBtn');button.disabled=true;
+ try{
+   const {width,height}=exportCanvas,pixels=exportCanvas.getContext('2d').getImageData(0,0,width,height).data;
+   const rgb=new Uint8Array(width*height*3);
+   for(let i=0,j=0;i<pixels.length;i+=4){rgb[j++]=pixels[i];rgb[j++]=pixels[i+1];rgb[j++]=pixels[i+2];}
+   saveBlob(await singlePagePdf(rgb,width,height),'ARHK-Timeline-A4.pdf');
+ }catch(error){alert('PDF导出失败：'+error.message);}finally{button.disabled=false;}
+};
+document.getElementById('pngBtn').onclick=exportPng;
+document.getElementById('pdfBtn').onclick=exportPdf;
+
+
+const fontSlider=document.getElementById('fontRange');
+fontSlider.addEventListener('input',()=>{
+ document.documentElement.style.setProperty('--ui-font',fontSlider.value+'px');
+ document.getElementById('fontValue').textContent=fontSlider.value+'px';
+ saveView();scheduleRender();
+});
+function toggleSidebar(force){
+ const next=typeof force==='boolean'?force:!document.body.classList.contains('editor-collapsed');
+ document.body.classList.toggle('editor-collapsed',next);
+ const b=document.getElementById('edgeToggle');b.textContent=next?'▶':'◀';b.setAttribute('aria-label',next?'展开编辑栏':'收起编辑栏');
+ saveView();scheduleConnectors();
+}
+document.getElementById('edgeToggle').onclick=()=>toggleSidebar();
+document.getElementById('highlightBtn').onclick=()=>{
+ const on=document.body.classList.toggle('highlighted');
+ document.getElementById('highlightBtn').textContent=on?'关闭关联高亮':'高亮关联节点';
+ saveView();scheduleConnectors();
+};
+// Graph reconstruction after resizing ensures connectors stay anchored exactly.
+const graphResizeObserver=new ResizeObserver(scheduleConnectors);
+graphResizeObserver.observe(document.querySelector('.board'));
+graphResizeObserver.observe(timelineWrap);
+
+</script>
+
+<script>
+/* V9 single source of truth: toolbar height drives both canvas and editor offsets. */
+(function(){
+ const bar=document.getElementById('mainToolbar');
+ if(!bar)return;
+ let previous=0;
+ function sync(){
+   const h=Math.ceil(bar.getBoundingClientRect().height);
+   if(h!==previous){previous=h;document.documentElement.style.setProperty('--topbar-h',h+'px');
+      scheduleConnectors();
+   }
+ }
+ const observer=new ResizeObserver(()=>requestAnimationFrame(sync));
+ observer.observe(bar);window.addEventListener('resize',()=>requestAnimationFrame(sync),{passive:true});
+ requestAnimationFrame(sync);
+})();
+</script>
+<style id="v11-attachment-fixes">
+#edgeToggle{position:fixed!important;left:auto!important;right:342px!important;top:calc(var(--topbar-h) + 56px)!important;transform:none!important;display:flex!important;align-items:center!important;justify-content:center!important;width:30px!important;height:58px!important;border-radius:12px 0 0 12px!important;border:1px solid #d6d7db!important;color:#292b30!important;background:#fff!important;box-shadow:-3px 1px 12px rgba(28,32,44,.14)!important;z-index:10030!important;opacity:1!important;visibility:visible!important;cursor:pointer}
+body.editor-collapsed #edgeToggle{left:auto!important;right:12px!important;top:calc(var(--topbar-h) + 56px)!important;border-radius:12px!important}
+@media(max-width:850px){#edgeToggle{right:min(340px,calc(100vw - 20px))!important}body.editor-collapsed #edgeToggle{right:12px!important}}
+#crossSvg{z-index:7!important;pointer-events:none!important}
+.section .node,.section .timeline-task-card{z-index:8!important;position:absolute}
+</style>
+<script>
+(function(){
+ const toggle=document.getElementById('edgeToggle');
+ if(toggle && toggle.parentElement!==document.body)document.body.appendChild(toggle);
+ if(document.fonts?.ready)document.fonts.ready.then(scheduleRender);
+})();
+</script>
+</body>
+</html>
