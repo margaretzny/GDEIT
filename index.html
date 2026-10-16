@@ -319,6 +319,7 @@ body.highlighted .related-card .task-name{font-weight:650!important}
 .export-actions .primary{background:#bd6a53;color:white}
 #exportPreview{display:block;width:100%;height:auto;background:white;box-shadow:0 2px 12px #0001}
 #exportNote{font-size:12px;color:#636366;line-height:1.6;margin:10px 0 0}
+#exportNote.export-warning{color:#9a3412;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:8px 10px}
 
 /* V11 release toolbar and independent typography controls */
 .toolbar-title .version-badge{display:inline-flex;align-items:center;margin-left:8px;padding:2px 7px;border-radius:999px;background:#eef0f4;color:#6b7280;font-size:11px;font-weight:650;letter-spacing:.2px;vertical-align:middle}
@@ -363,7 +364,7 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
 <div class="app">
   <div class="board">
     <div class="toolbar" id="mainToolbar">
-      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.2</span></h1></div>
+      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.3</span></h1></div>
       <div class="toolbar-primary">
         <div class="toolbar-module" aria-label="导入导出"><button class="secondary toolbar-menu-toggle" data-menu="fileMenu">导入/导出</button><div class="toolbar-menu" id="fileMenu">
           <label class="btn secondary" for="importFile">导入JSON</label><input id="importFile" type="file" accept="application/json" />
@@ -374,6 +375,7 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
           <label class="range-control">纵轴字号<input id="lineFontRange" type="range" min="10" max="30" value="14" step="1"><b id="lineFontValue">14px</b></label>
           <label class="range-control">节点框字号<input id="fontRange" type="range" min="10" max="30" value="14" step="1"><b id="fontValue">14px</b></label>
           <label class="range-control">圆标字号<input id="nodeFontRange" type="range" min="10" max="30" value="14" step="1"><b id="nodeFontValue">14px</b></label>
+          <button id="autoFitBtn" class="secondary">一键自适应</button>
           <label class="range-control">节点间距<input id="spacingRange" type="range" min="72" max="230" value="105" step="1"><b id="spacingValue">105</b></label>
           <label class="range-control">页面缩放<input id="zoomRange" type="range" min="5" max="160" value="100" step="5"><b id="zoomValue">100%</b></label>
         </div></div>
@@ -453,6 +455,11 @@ const V6_STORAGE='arhk-v6-layout-relations';
 let extras=(()=>{try{return JSON.parse(localStorage.getItem(V6_STORAGE))||{}}catch(e){return {}}})();
 extras.layouts ||= {};extras.groups ||= [];
 function persistExtras(){localStorage.setItem(V6_STORAGE,JSON.stringify(extras));}
+const AUTO_FIT_GAP=28; // 至少保留约两个虚线点的视觉间距
+function autoFitCardWidth(){
+ const font=Number(document.getElementById('fontRange')?.value)||14;
+ return Math.max(156,Math.min(240,Math.round(150+font*3)));
+}
 let currentZoom=1;
 let renderFrame=0, connectorFrame=0;
 function scheduleConnectors(){if(!connectorFrame)connectorFrame=requestAnimationFrame(()=>{connectorFrame=0;drawCrossLines();});}
@@ -604,7 +611,7 @@ function render(){
       for(const item of items){
         const card=document.createElement('div');card.className='task-card timeline-task-card';card.tabIndex=0;card.dataset.line=line.id;card.dataset.id=item.id;card.dataset.anchor=xmap[date];card.dataset.place=item.placement==='above'?'above':'below';
         const saved=extras.layouts[nodeKey(line.id,item.id)];
-        const w=saved?.width||156;
+        const w=saved?.width||(document.body.classList.contains('auto-fit')?autoFitCardWidth():156);
         card.style.width=w+'px';card.style.left=(saved?Math.max(LEFT+12,saved.left+(Number.isFinite(saved.anchorX)?xmap[date]-saved.anchorX:0)):xmap[date]-w/2)+'px';
         if(saved){card.dataset.manual='true';card.style.top=saved.top+'px';if(saved.height)card.style.minHeight=saved.height+'px';}
         const name=document.createElement('div');name.className='task-name';name.textContent=item.title;
@@ -653,6 +660,11 @@ function arrangeSection(sec){
  y=axisY+38;
  lanes.below.forEach((row,i)=>{row.forEach(c=>{if(!c.dataset.manual)c.style.top=y+'px';});y+=below[i]+12;});
  const occupied=[{left:0,top:axisY-20,width:1e7,height:40}];
+ const gap=document.body.classList.contains('auto-fit')?AUTO_FIT_GAP:10;
+ sec.querySelectorAll('.node').forEach(node=>{
+   const r=cardBox(node);
+   occupied.push({left:r.left-gap,top:r.top-gap,width:r.width+gap*2,height:r.height+gap*2});
+ });
  // Honor manual coordinates first, moving only cards that actually collide.
  for(const card of [...cards].sort((a,b)=>Number(!!b.dataset.manual)-Number(!!a.dataset.manual))){occupied.push(clearCardPosition(card,occupied));}
 }
@@ -945,7 +957,7 @@ function moveReferences(oldKey,newKey,resetLayout=false){
  extras.groups=extras.groups.map(g=>[...new Set(g.flatMap(k=>k===oldKey?(newKey?[newKey]:[]):[k]))]).filter(g=>g.length>1);
  persistExtras();
 }
-function readView(){return {spacing:Number(document.getElementById('spacingRange').value),font:Number(document.getElementById('fontRange').value),axisFont:Number(document.getElementById('axisFontRange').value),lineFont:Number(document.getElementById('lineFontRange').value),nodeFont:Number(document.getElementById('nodeFontRange').value),zoom:Number(document.getElementById('zoomRange').value),leftWidth:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--left-size'))||255,highlighted:document.body.classList.contains('highlighted'),editorCollapsed:document.body.classList.contains('editor-collapsed')};}
+function readView(){return {spacing:Number(document.getElementById('spacingRange').value),font:Number(document.getElementById('fontRange').value),axisFont:Number(document.getElementById('axisFontRange').value),lineFont:Number(document.getElementById('lineFontRange').value),nodeFont:Number(document.getElementById('nodeFontRange').value),zoom:Number(document.getElementById('zoomRange').value),leftWidth:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--left-size'))||255,highlighted:document.body.classList.contains('highlighted'),editorCollapsed:document.body.classList.contains('editor-collapsed'),autoFit:document.body.classList.contains('auto-fit')};}
 function saveView(){extras.view=readView();persistExtras();}
 function restoreView(view={}){
  view=view&&typeof view==='object'?view:{};
@@ -964,6 +976,7 @@ function restoreView(view={}){
  document.documentElement.style.setProperty('--node-font',document.getElementById('nodeFontRange').value+'px');
  document.body.classList.toggle('highlighted',!!view.highlighted);
  document.body.classList.toggle('editor-collapsed',!!view.editorCollapsed);
+ document.body.classList.toggle('auto-fit',!!view.autoFit);
  updateHighlightButton(!!view.highlighted);
  const collapsed=!!view.editorCollapsed,b=document.getElementById('edgeToggle');b.textContent=collapsed?'▶':'◀';b.setAttribute('aria-label',collapsed?'展开编辑栏':'收起编辑栏');
  applyZoom(false);
@@ -1037,6 +1050,21 @@ document.getElementById('fitBtn').onclick=()=>{
  const available=document.querySelector('.board').clientWidth-24;
  document.getElementById('zoomRange').value=Math.max(5,Math.floor(Math.min(1,available/timelineWrap.offsetWidth)*100/5)*5);applyZoom();
 };
+function autoFitLayout(){
+ document.body.classList.add('auto-fit');
+ const nodeFont=Number(document.getElementById('nodeFontRange').value)||14;
+ const nodeSize=Math.max(36,nodeFont*3.6);
+ const cardWidth=autoFitCardWidth();
+ const spacing=Math.max(72,Math.ceil(Math.max(nodeSize+AUTO_FIT_GAP*2,cardWidth+AUTO_FIT_GAP)));
+ document.getElementById('spacingRange').value=Math.min(230,spacing);
+ document.getElementById('spacingValue').textContent=document.getElementById('spacingRange').value;
+ // Rebuild card positions from the current data so the layout can be compacted safely.
+ extras.layouts={};
+ saveView();
+ render();
+ scheduleConnectors();
+}
+document.getElementById('autoFitBtn').onclick=autoFitLayout;
 
 function saveBlob(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);}
 let exportImage='',exportCanvas=null,exportBusy=false;
@@ -1075,7 +1103,9 @@ async function snapshotA4(){
  context.fillStyle='#fff';context.fillRect(0,0,canvas.width,canvas.height);
  const margin=94,scale=Math.min((canvas.width-margin*2)/width,(canvas.height-margin*2)/height);
  const dw=width*scale,dh=height*scale;context.drawImage(img,(canvas.width-dw)/2,(canvas.height-dh)/2,dw,dh);
- return {canvas,url:canvas.toDataURL('image/png'),fontPt:Number(document.getElementById('fontRange').value)*scale*72/300};
+ const uiFonts=['fontRange','axisFontRange','lineFontRange','nodeFontRange'].map(id=>Number(document.getElementById(id).value)||14);
+ const minFontPt=Math.min(...uiFonts)*scale*72/300;
+ return {canvas,url:canvas.toDataURL('image/png'),fontPt:minFontPt};
 }
 async function openExportPreview(){
  if(exportBusy)return;exportBusy=true;
@@ -1083,7 +1113,12 @@ async function openExportPreview(){
  try{
    const result=await snapshotA4();exportImage=result.url;exportCanvas=result.canvas;
    document.getElementById('exportPreview').src=exportImage;
-   document.getElementById('exportNote').textContent=`全部线路、待定事项、卡片及关联线已按当前布局等比例放入一张 A4 横向页面。预计任务字号约 ${result.fontPt.toFixed(1)} pt；内容较多时自动缩小。PNG 与 PDF 使用同一张画面，PDF 固定为一张 A4 横向页面。`;
+   const note=document.getElementById('exportNote');
+   const readable=result.fontPt>=10;
+   note.classList.toggle('export-warning',!readable);
+   note.textContent=readable
+     ? `全部线路、待定事项、卡片及关联线已按当前布局等比例放入一张 A4 横向页面。预计最小纸面字号约 ${result.fontPt.toFixed(1)} pt，满足至少10 pt的可读性目标。PNG 与 PDF 使用同一张画面。`
+     : `当前布局已完整保留并放入一张 A4 横向页面，但预计最小纸面字号约 ${result.fontPt.toFixed(1)} pt，低于10 pt目标。当前字号不会被静默缩小；如需保持10 pt以上，请增大纸张或改为分页导出。PNG 与 PDF 使用同一张画面。`;
    document.getElementById('exportDialog').showModal();
  }catch(error){alert('导出失败：'+error.message);}finally{exportBusy=false;buttons.forEach(b=>b.disabled=false);}
 }
