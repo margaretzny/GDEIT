@@ -365,7 +365,7 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
 <div class="app">
   <div class="board">
     <div class="toolbar" id="mainToolbar">
-      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.4</span></h1></div>
+      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.5</span></h1></div>
       <div class="toolbar-primary">
         <div class="toolbar-module" aria-label="导入导出"><button class="secondary toolbar-menu-toggle" data-menu="fileMenu">导入/导出</button><div class="toolbar-menu" id="fileMenu">
           <label class="btn secondary" for="importFile">导入JSON</label><input id="importFile" type="file" accept="application/json" />
@@ -1074,6 +1074,7 @@ document.getElementById('autoFitBtn').onclick=autoFitLayout;
 
 function saveBlob(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);}
 let exportImage='',exportCanvas=null,exportBusy=false;
+function exportTitleLayout(){return {mainPx:75,englishPx:50,versionPx:37.5,bandPx:120};}
 async function snapshotA4(){
  await document.fonts.ready;
  if(renderFrame){cancelAnimationFrame(renderFrame);renderFrame=0;render();}
@@ -1089,14 +1090,11 @@ async function snapshotA4(){
  clone.querySelectorAll('.resize-corner,#leftResize').forEach(el=>el.remove());
  clone.style.zoom='1';clone.style.transform='none';clone.style.position='relative';clone.style.margin='0';clone.style.overflow='visible';
  // Extra padding includes gold glows and any text extending beyond its box.
- const heading=document.querySelector('.toolbar-title'),titleHeight=heading.offsetHeight;
- const width=timelineWrap.offsetWidth+32,height=timelineWrap.offsetHeight+32+titleHeight;
+ const heading=document.querySelector('.toolbar-title');
+ const width=timelineWrap.offsetWidth+32,height=timelineWrap.offsetHeight+32;
  clone.style.width=timelineWrap.offsetWidth+'px';clone.style.height=timelineWrap.offsetHeight+'px';
- const host=document.createElementNS('http://www.w3.org/1999/xhtml','div');host.setAttribute('style','padding:16px;background:white;box-sizing:border-box;width:'+width+'px;height:'+height+'px');const title=heading.cloneNode(true);
- const titleSources=[heading,...heading.querySelectorAll('*')],titleTargets=[title,...title.querySelectorAll('*')];
- titleSources.forEach((el,i)=>{const css=getComputedStyle(el);for(const prop of css)titleTargets[i].style.setProperty(prop,css.getPropertyValue(prop));});
- title.style.width=timelineWrap.offsetWidth+'px';title.style.height=titleHeight+'px';
- host.append(title,clone);
+ const host=document.createElementNS('http://www.w3.org/1999/xhtml','div');host.setAttribute('style','padding:16px;background:white;box-sizing:border-box;width:'+width+'px;height:'+height+'px');
+ host.append(clone);
  const markup=new XMLSerializer().serializeToString(host);
  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><foreignObject width="100%" height="100%">${markup}</foreignObject></svg>`;
  const img=new Image();
@@ -1107,11 +1105,20 @@ async function snapshotA4(){
  const canvas=document.createElement('canvas');canvas.width=3508;canvas.height=2480;
  const context=canvas.getContext('2d');if(!context)throw new Error('无法创建导出画布');
  context.fillStyle='#fff';context.fillRect(0,0,canvas.width,canvas.height);
- const margin=94,scale=Math.min((canvas.width-margin*2)/width,(canvas.height-margin*2)/height);
- const dw=width*scale,dh=height*scale;context.drawImage(img,(canvas.width-dw)/2,(canvas.height-dh)/2,dw,dh);
+ const margin=94,titleLayout=exportTitleLayout(),contentTop=margin+titleLayout.bandPx;
+ const scale=Math.min((canvas.width-margin*2)/width,(canvas.height-contentTop-margin)/height);
+ const dw=width*scale,dh=height*scale;context.drawImage(img,(canvas.width-dw)/2,contentTop+(canvas.height-contentTop-margin-dh)/2,dw,dh);
+ const titleHeading=heading.querySelector('h1'),mainTitle=titleHeading.childNodes[0]?.textContent.trim()||'欧晟项目退出时间线';
+ const englishTitle=heading.querySelector('.english')?.textContent.trim()||'ARHK Timeline',version=heading.querySelector('#appVersion')?.textContent.trim()||'';
+ const baseline=margin+titleLayout.mainPx;
+ context.fillStyle='#202124';context.font=`680 ${titleLayout.mainPx}px -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif`;context.fillText(mainTitle,margin,baseline);
+ const mainWidth=context.measureText(mainTitle).width;
+ context.fillStyle='#71717a';context.font=`500 ${titleLayout.englishPx}px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif`;context.fillText(englishTitle,margin+mainWidth+32,baseline);
+ const englishWidth=context.measureText(englishTitle).width;
+ context.fillStyle='#8a8a90';context.font=`650 ${titleLayout.versionPx}px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif`;context.fillText(version,margin+mainWidth+englishWidth+62,baseline);
  const uiFonts=['fontRange','axisFontRange','lineFontRange','nodeFontRange'].map(id=>Number(document.getElementById(id).value)||14);
  const minFontPt=Math.min(...uiFonts)*scale*72/300;
- return {canvas,url:canvas.toDataURL('image/png'),fontPt:minFontPt};
+ return {canvas,url:canvas.toDataURL('image/png'),fontPt:minFontPt,titleFontPt:titleLayout.mainPx*72/300};
 }
 async function openExportPreview(){
  if(exportBusy)return;exportBusy=true;
@@ -1123,8 +1130,8 @@ async function openExportPreview(){
    const readable=result.fontPt>=10;
    note.classList.toggle('export-warning',!readable);
    note.textContent=readable
-     ? `全部线路、待定事项、卡片及关联线已按当前布局等比例放入一张 A4 横向页面。预计最小纸面字号约 ${result.fontPt.toFixed(1)} pt，满足至少10 pt的可读性目标。PNG 与 PDF 使用同一张画面。`
-     : `当前布局已完整保留并等比例缩放到一张 A4 横向页面，但预计最小纸面字号约 ${result.fontPt.toFixed(1)} pt，低于10 pt目标。此单页导出不满足10 pt的打印可读性要求；屏幕字号保持原设置。PNG 与 PDF 使用同一张画面。`;
+     ? `标题以 ${result.titleFontPt.toFixed(0)} pt 独立排版；全部线路、待定事项、卡片及关联线已按当前布局等比例放入一张 A4 横向页面。预计最小纸面字号约 ${result.fontPt.toFixed(1)} pt，满足至少10 pt的可读性目标。PNG 与 PDF 使用同一张画面。`
+     : `标题以 ${result.titleFontPt.toFixed(0)} pt 独立排版；当前布局已完整保留并等比例缩放到一张 A4 横向页面，但预计最小纸面字号约 ${result.fontPt.toFixed(1)} pt，低于10 pt目标。此单页导出不满足10 pt的打印可读性要求；屏幕字号保持原设置。PNG 与 PDF 使用同一张画面。`;
    document.getElementById('exportDialog').showModal();
  }catch(error){alert('导出失败：'+error.message);}finally{exportBusy=false;buttons.forEach(b=>b.disabled=false);}
 }
