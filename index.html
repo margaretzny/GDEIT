@@ -328,6 +328,7 @@ body .toolbar-primary{display:grid!important;grid-template-columns:repeat(6,minm
 .toolbar-module>button{width:100%;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .toolbar-menu{position:absolute;top:calc(100% + 6px);left:0;z-index:1000;display:none;min-width:220px;padding:8px;background:rgba(255,255,255,.98);border:1px solid #e1e5ec;border-radius:12px;box-shadow:0 12px 34px #1112}
 .toolbar-module.menu-open .toolbar-menu{display:grid;gap:6px}
+.auto-fit-note{font-size:11px;color:#777;padding:0 8px 5px;white-space:nowrap}
 .toolbar-menu button,.toolbar-menu label{width:100%;text-align:left}
 .toolbar-menu .range-control{display:grid;grid-template-columns:72px minmax(80px,1fr) 34px;align-items:center;gap:5px;padding:4px 2px;color:#4b5563}
 .toolbar-menu .range-control input{width:100%!important}
@@ -364,7 +365,7 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
 <div class="app">
   <div class="board">
     <div class="toolbar" id="mainToolbar">
-      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.3</span></h1></div>
+      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.4</span></h1></div>
       <div class="toolbar-primary">
         <div class="toolbar-module" aria-label="导入导出"><button class="secondary toolbar-menu-toggle" data-menu="fileMenu">导入/导出</button><div class="toolbar-menu" id="fileMenu">
           <label class="btn secondary" for="importFile">导入JSON</label><input id="importFile" type="file" accept="application/json" />
@@ -375,7 +376,7 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
           <label class="range-control">纵轴字号<input id="lineFontRange" type="range" min="10" max="30" value="14" step="1"><b id="lineFontValue">14px</b></label>
           <label class="range-control">节点框字号<input id="fontRange" type="range" min="10" max="30" value="14" step="1"><b id="fontValue">14px</b></label>
           <label class="range-control">圆标字号<input id="nodeFontRange" type="range" min="10" max="30" value="14" step="1"><b id="nodeFontValue">14px</b></label>
-          <button id="autoFitBtn" class="secondary">一键自适应</button>
+          <button id="autoFitBtn" class="secondary">一键自适应</button><span class="auto-fit-note">保留字号，重新紧凑排布全部节点</span>
           <label class="range-control">节点间距<input id="spacingRange" type="range" min="72" max="230" value="105" step="1"><b id="spacingValue">105</b></label>
           <label class="range-control">页面缩放<input id="zoomRange" type="range" min="5" max="160" value="100" step="5"><b id="zoomValue">100%</b></label>
         </div></div>
@@ -584,16 +585,21 @@ function render(){
   const LEFT=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--left-size'))||255;
   const nodeFont=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--node-font'))||14;
   const nodeSize=Math.max(36,nodeFont*3.6);
-  const COL=Number(document.getElementById('spacingRange').value);
-  timelineWrap.style.width=(LEFT+Math.max(1,dateKeys.length)*COL+140)+'px';
-  const xmap={};dateKeys.forEach((d,i)=>xmap[d]=LEFT+80+i*COL);
-  monthsEl.replaceChildren();let lastMonth='';
+  const compact=document.body.classList.contains('auto-fit');
+  const COL=Math.max(Number(document.getElementById('spacingRange').value),nodeSize+16);
+  const xmap={};
+  monthsEl.replaceChildren();let lastMonth='',previousLabel=null;
+  let x=LEFT+Math.max(80,(compact?autoFitCardWidth():156)/2+12,nodeSize/2+12);
   for(const d of dateKeys){
     if(d.slice(0,7)!==lastMonth){
-      const label=document.createElement('div');label.className='month-label';label.style.left=xmap[d]+'px';label.textContent=d.slice(0,4)+'年'+Number(d.slice(5,7))+'月';monthsEl.appendChild(label);lastMonth=d.slice(0,7);
+      const label=document.createElement('div');label.className='month-label';label.textContent=d.slice(0,4)+'年'+Number(d.slice(5,7))+'月';monthsEl.appendChild(label);
+      if(previousLabel)x=Math.max(x,parseFloat(previousLabel.style.left)+(previousLabel.offsetWidth+label.offsetWidth)/2+16);
+      label.style.left=x+'px';previousLabel=label;lastMonth=d.slice(0,7);
     }
+    xmap[d]=x;x+=COL;
     const tick=document.createElement('div');tick.className='month-line';tick.style.left=xmap[d]+'px';monthsEl.appendChild(tick);
   }
+  timelineWrap.style.width=(x+Math.max(140,compact?autoFitCardWidth()/2+24:140))+'px';
   sectionsEl.replaceChildren();
   for(const line of [...state.lines].sort((a,b)=>lineOrder.indexOf(a.id)-lineOrder.indexOf(b.id))){
     const sec=document.createElement('div');sec.className='section';sec.dataset.line=line.id;
@@ -612,7 +618,7 @@ function render(){
         const card=document.createElement('div');card.className='task-card timeline-task-card';card.tabIndex=0;card.dataset.line=line.id;card.dataset.id=item.id;card.dataset.anchor=xmap[date];card.dataset.place=item.placement==='above'?'above':'below';
         const saved=extras.layouts[nodeKey(line.id,item.id)];
         const w=saved?.width||(document.body.classList.contains('auto-fit')?autoFitCardWidth():156);
-        card.style.width=w+'px';card.style.left=(saved?Math.max(LEFT+12,saved.left+(Number.isFinite(saved.anchorX)?xmap[date]-saved.anchorX:0)):xmap[date]-w/2)+'px';
+        card.style.width=w+'px';card.style.left=Math.max(LEFT+12,saved?saved.left+(Number.isFinite(saved.anchorX)?xmap[date]-saved.anchorX:0):xmap[date]-w/2)+'px';
         if(saved){card.dataset.manual='true';card.style.top=saved.top+'px';if(saved.height)card.style.minHeight=saved.height+'px';}
         const name=document.createElement('div');name.className='task-name';name.textContent=item.title;
         const meta=document.createElement('div');meta.className='task-meta';meta.textContent=item.id+' · '+item.status;
@@ -652,15 +658,16 @@ function arrangeSection(sec){
  }
  const heights=side=>lanes[side].map(row=>Math.max(...row.map(c=>c.offsetHeight)));
  const above=heights('above'),below=heights('below');
- const axisY=44+above.reduce((n,h)=>n+h+12,0);sec.dataset.axisY=axisY;
+ const radius=Math.max(18,...[...sec.querySelectorAll('.node')].map(n=>n.offsetHeight/2));
+ const axisY=12+above.reduce((n,h)=>n+h+12,0)+radius+AUTO_FIT_GAP;sec.dataset.axisY=axisY;
  sec.querySelector('.axis').style.top=(axisY-5.5)+'px';
- sec.querySelectorAll('.node').forEach(n=>n.style.top=(axisY-18)+'px');
- let y=axisY-38;
+ sec.querySelectorAll('.node').forEach(n=>n.style.top=(axisY-n.offsetHeight/2)+'px');
+ let y=axisY-radius-AUTO_FIT_GAP;
  lanes.above.forEach((row,i)=>{y-=above[i];row.forEach(c=>{if(!c.dataset.manual)c.style.top=y+'px';});y-=12;});
- y=axisY+38;
+ y=axisY+radius+AUTO_FIT_GAP;
  lanes.below.forEach((row,i)=>{row.forEach(c=>{if(!c.dataset.manual)c.style.top=y+'px';});y+=below[i]+12;});
  const occupied=[{left:0,top:axisY-20,width:1e7,height:40}];
- const gap=document.body.classList.contains('auto-fit')?AUTO_FIT_GAP:10;
+ const gap=AUTO_FIT_GAP;
  sec.querySelectorAll('.node').forEach(node=>{
    const r=cardBox(node);
    occupied.push({left:r.left-gap,top:r.top-gap,width:r.width+gap*2,height:r.height+gap*2});
@@ -669,7 +676,7 @@ function arrangeSection(sec){
  for(const card of [...cards].sort((a,b)=>Number(!!b.dataset.manual)-Number(!!a.dataset.manual))){occupied.push(clearCardPosition(card,occupied));}
 }
 function sizeSection(sec){
- const maxBottom=Math.max(Number(sec.dataset.axisY)+28,...[...sec.querySelectorAll('.timeline-task-card')].map(c=>parseFloat(c.style.top)+c.offsetHeight));
+ const maxBottom=Math.max(Number(sec.dataset.axisY)+28,...[...sec.querySelectorAll('.timeline-task-card,.node')].map(c=>parseFloat(c.style.top)+c.offsetHeight));
  const pending=sec.querySelector('.pending-box');
  if(pending){pending.style.top=(maxBottom+20)+'px';pending.style.bottom='auto';}
  sec.style.height=(maxBottom+32+(pending?.offsetHeight||32))+'px';
@@ -1054,8 +1061,7 @@ function autoFitLayout(){
  document.body.classList.add('auto-fit');
  const nodeFont=Number(document.getElementById('nodeFontRange').value)||14;
  const nodeSize=Math.max(36,nodeFont*3.6);
- const cardWidth=autoFitCardWidth();
- const spacing=Math.max(72,Math.ceil(Math.max(nodeSize+AUTO_FIT_GAP*2,cardWidth+AUTO_FIT_GAP)));
+ const spacing=Math.max(72,Math.ceil(nodeSize+16));
  document.getElementById('spacingRange').value=Math.min(230,spacing);
  document.getElementById('spacingValue').textContent=document.getElementById('spacingRange').value;
  // Rebuild card positions from the current data so the layout can be compacted safely.
@@ -1118,7 +1124,7 @@ async function openExportPreview(){
    note.classList.toggle('export-warning',!readable);
    note.textContent=readable
      ? `全部线路、待定事项、卡片及关联线已按当前布局等比例放入一张 A4 横向页面。预计最小纸面字号约 ${result.fontPt.toFixed(1)} pt，满足至少10 pt的可读性目标。PNG 与 PDF 使用同一张画面。`
-     : `当前布局已完整保留并放入一张 A4 横向页面，但预计最小纸面字号约 ${result.fontPt.toFixed(1)} pt，低于10 pt目标。当前字号不会被静默缩小；如需保持10 pt以上，请增大纸张或改为分页导出。PNG 与 PDF 使用同一张画面。`;
+     : `当前布局已完整保留并等比例缩放到一张 A4 横向页面，但预计最小纸面字号约 ${result.fontPt.toFixed(1)} pt，低于10 pt目标。此单页导出不满足10 pt的打印可读性要求；屏幕字号保持原设置。PNG 与 PDF 使用同一张画面。`;
    document.getElementById('exportDialog').showModal();
  }catch(error){alert('导出失败：'+error.message);}finally{exportBusy=false;buttons.forEach(b=>b.disabled=false);}
 }
