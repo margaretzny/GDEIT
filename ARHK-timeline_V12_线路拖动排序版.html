@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ARHK Timeline — 五线时间轴</title>
+<style>
+  :root {
+    --bg:#f6f7fb; --panel:#ffffff; --text:#1f2937; --muted:#6b7280; --line:#cfd3da; --axis:#bcbfc7;
+    --blue:#2F80ED; --green:#27AE60; --orange:#F2994A; --gray:#9CA3AF; --yellow:#E0A800; --shadow:0 8px 24px rgba(15,23,42,.08);
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; color:var(--text); background:var(--bg); }
+  .app { display:grid; grid-template-columns: minmax(900px,1fr) 330px; gap:16px; padding:16px; }
+  .board { background:var(--panel); border-radius:18px; box-shadow:var(--shadow); overflow:auto; position:relative; }
+  .toolbar { position:sticky; top:0; z-index:20; background:rgba(255,255,255,.95); backdrop-filter: blur(8px); border-bottom:1px solid #eceff4; padding:12px 16px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .toolbar h1 { font-size:18px; margin:0 12px 0 0; }
+  .toolbar button, .toolbar label.btn { border:none; background:#111827; color:#fff; padding:8px 12px; border-radius:10px; cursor:pointer; font-size:13px; }
+  .toolbar button.secondary, .toolbar label.btn.secondary { background:#e5e7eb; color:#111827; }
+  .toolbar .hint { color:var(--muted); font-size:12px; }
+  #importFile { display:none; }
+  .timeline-wrap { position:relative; padding:20px 24px 30px; min-width:1700px; }
+  .months { position:relative; height:44px; border-bottom:1px solid #eef2f7; margin-bottom:16px; }
+  .month-label { position:absolute; top:0; transform:translateX(-50%); font-size:12px; color:#374151; font-weight:700; white-space:nowrap; }
+  .month-line { position:absolute; top:22px; bottom:0; width:1px; background:#e5e7eb; }
+  .week-line { position:absolute; top:22px; bottom:0; width:1px; background:#f1f3f6; }
+  .sections { position:relative; }
+  .section { position:relative; height:160px; margin-bottom:6px; }
+  .section-title { position:absolute; left:0; top:0; width:255px; font-weight:700; font-size:16px; color:#111827; }
+  .section-sub { position:absolute; left:0; top:24px; width:255px; font-size:12px; color:#6b7280; }
+  .axis { position:absolute; left:255px; right:24px; top:76px; height:10px; background:#d2d4d8; border-radius:5px; }
+  .node { position:absolute; width:74px; height:74px; border-radius:50%; display:flex; align-items:center; justify-content:center; text-align:center; color:#fff; font-weight:700; font-size:12px; cursor:pointer; box-shadow:0 6px 14px rgba(0,0,0,.14); z-index:6; }
+  .node .inside { line-height:1.2; }
+  .status-complete { background:var(--green); }
+  .status-progress { background:var(--blue); }
+  .status-notstart { background:#7f8a98; }
+  .status-pending { background:var(--yellow); color:#fff; }
+  .status-paused { background:#9C27B0; }
+  .callout { position:absolute; width:160px; font-size:13px; line-height:1.35; color:#111827; z-index:6; }
+  .callout .title { font-weight:700; }
+  .callout .meta { color:#6b7280; font-size:12px; margin-top:3px; }
+  .leader { position:absolute; width:42px; height:48px; overflow:visible; z-index:5; }
+  .leader path { fill:none; stroke:#60a5fa; stroke-width:2; stroke-dasharray:6 5; }
+  .pending-box { position:absolute; left:255px; right:24px; bottom:8px; min-height:32px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .pending-label { font-size:12px; color:#6b7280; margin-right:2px; }
+  .pending-tag { background:#fff6db; color:#8a6700; border:1px solid #f4d88a; padding:4px 8px; border-radius:999px; font-size:12px; cursor:pointer; }
+  .cross-svg { position:absolute; inset:0; pointer-events:none; z-index:2; }
+  .cross-date-label { fill:#94a3b8; font-size:11px; }
+  .side { background:var(--panel); border-radius:18px; box-shadow:var(--shadow); padding:16px; position:sticky; top:16px; height:calc(100vh - 32px); overflow:auto; }
+  .side h2 { margin:0 0 10px; font-size:18px; }
+  .side .tip { color:#6b7280; font-size:12px; margin-bottom:12px; }
+  .field { margin-bottom:10px; }
+  .field label { display:block; font-size:12px; color:#6b7280; margin-bottom:5px; }
+  .field input, .field select, .field textarea { width:100%; border:1px solid #d9dee7; border-radius:10px; padding:9px 10px; font:inherit; }
+  .field textarea { min-height:92px; resize:vertical; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+  .actions button { border:none; padding:10px 12px; border-radius:10px; cursor:pointer; font-size:13px; }
+  .primary { background:#2563eb; color:#fff; }
+  .ghost { background:#eef2ff; color:#1e3a8a; }
+  .danger { background:#fee2e2; color:#991b1b; }
+  .muted { background:#f3f4f6; color:#111827; }
+  .legend { margin-top:18px; border-top:1px solid #edf0f5; padding-top:14px; }
+  .legend-item { display:flex; align-items:center; gap:8px; font-size:12px; color:#4b5563; margin-bottom:8px; }
+  .swatch { width:12px; height:12px; border-radius:50%; }
+  .footer-note { margin-top:14px; font-size:12px; color:#6b7280; line-height:1.5; }
+  @media (max-width: 1200px) { .app { grid-template-columns: 1fr; } .side { position:relative; top:0; height:auto; } }
+
+/* Version 2: collision-free, mobile-friendly compact nodes */
+.timeline-wrap {min-width:0; padding:20px 24px 25px;}
+.section {margin-bottom:16px; border-bottom:1px solid #edf0f5;}
+.section-title {top:8px; font-size:15px;}
+.section-sub {display:none !important;}
+.axis {top:72px; height:11px; background:#d8dce3;}
+.node {width:36px;height:36px;font-size:10px;top:60px;border:3px solid white;box-shadow:0 3px 10px #0002;}
+.task-group {position:absolute;width:194px;display:flex;flex-direction:column;gap:6px;z-index:7;}
+.task-card {cursor:pointer;min-height:48px;background:#fff;padding:5px 8px;border:1px solid #dce3ec;border-radius:8px;box-shadow:0 2px 8px #00000009;white-space:normal;overflow-wrap:anywhere;}
+.task-card:hover,.task-card:focus {border-color:#3386ee;background:#f2f7ff;outline:none;}
+.task-name {font-weight:650;font-size:12px;line-height:1.4;}
+.task-meta {color:#6b7280;font-size:11px;margin-top:2px;}
+.pending-box {bottom:4px;left:255px;max-width:1900px;}
+.months {height:54px;}
+.month-label {font-size:13px;white-space:nowrap;}
+.month-line {top:24px;background:#e4e8ee;}
+@media(max-width:700px){
+ .app {display:flex;flex-direction:column;padding:8px;gap:10px;}
+ .board,.side {border-radius:12px;}
+ .board {width:100%;}
+ .toolbar{padding:10px;gap:6px;}
+ .toolbar h1{font-size:16px;width:100%;}
+ .toolbar button,.toolbar label.btn{font-size:12px;padding:7px 9px;}
+ .toolbar .hint{width:100%;font-size:11px;}
+ .side {padding:12px;}
+ .timeline-wrap {padding-top:12px;}
+}
+
+
+.range-control{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#334155;white-space:nowrap}
+.range-control input{width:100px;accent-color:#2563eb}
+.range-control b{min-width:34px;font-size:11px;font-weight:600}
+.timeline-task-card{position:absolute;min-height:50px;z-index:6;box-shadow:none}
+.card-stem{position:absolute;width:1px;border-left:1.5px dashed #93c5fd;z-index:4;pointer-events:none}
+.section-title{width:250px;line-height:1.4}
+.section{overflow:visible}
+#timelineWrap{transform-origin:left top}
+@media(max-width:700px){.range-control input{width:73px}.toolbar .hint{order:10}.range-control{font-size:11px}}
+
+/* V4 toolbar and resizable sidebar */
+:root{--left-size:255px;--ui-font:12px}
+body{padding-top:0}
+.app{grid-template-columns:minmax(0,1fr) 330px;padding-top:116px}
+.board{overflow:auto;min-width:0;}
+.toolbar{position:fixed!important;top:0!important;left:0;right:0;z-index:200!important;display:block!important;padding:8px 14px!important;border-radius:0;box-shadow:0 3px 16px #00000012}
+.toolbar-primary,.toolbar-secondary{display:flex;gap:7px;align-items:center;flex-wrap:nowrap;min-height:42px;overflow-x:auto}
+.toolbar-primary{border-bottom:1px solid #eef0f5;padding-bottom:5px}
+.toolbar-secondary{padding-top:5px}
+.toolbar-primary h1{font-size:16px;white-space:nowrap;min-width:max-content;margin-right:8px}
+.toolbar-primary button,.toolbar-primary .btn,.toolbar-secondary button{white-space:nowrap;flex:0 0 auto}
+.toolbar-secondary .hint{flex:1 1 250px;max-width:440px;font-size:11px!important;line-height:1.35}
+.range-control{flex:0 0 auto}
+.range-control input{width:83px}
+.section-title{display:none!important}
+.axis{left:var(--left-size)!important}
+.pending-box{left:var(--left-size)!important}
+.timeline-task-card{font-size:var(--ui-font)}
+.task-name{font-size:var(--ui-font)!important;overflow-wrap:anywhere;white-space:normal}
+.task-meta{font-size:calc(var(--ui-font) - 1px)!important;white-space:normal}
+.section{overflow:visible}
+.timeline-wrap{min-width:0;transform-origin:left top}
+#leftRail{position:absolute;top:0;left:0;width:var(--left-size);z-index:10;background:#fff;border-right:1px solid #e5e7eb;box-sizing:border-box}
+.rail-row{position:relative;display:flex;align-items:flex-start;padding:13px 13px 8px 10px;border-bottom:1px solid #f0f2f5;overflow-wrap:anywhere;font-size:15px;font-weight:700}
+#leftResize{position:absolute;right:-5px;top:0;bottom:0;width:10px;cursor:col-resize;z-index:15}
+#leftResize:hover,#leftResize.dragging{background:#bfdbfe88}
+#leftResize:hover:after{content:'↔';position:absolute;top:15px;left:-10px;color:#2563eb;background:white;border:1px solid #93c5fd;border-radius:8px;padding:3px 5px}
+body.editor-collapsed .app{grid-template-columns:minmax(0,1fr)}
+body.editor-collapsed .side{display:none}
+.side{top:128px;height:calc(100vh - 144px)}
+.cross-svg{z-index:5!important;overflow:visible}
+.section .node{z-index:7}
+body.highlighted .related-node{box-shadow:0 0 0 5px #fff0ab,0 0 14px 7px #ffc84d99!important;border-color:#f9bf46!important;font-weight:800;filter:saturate(1.45)}
+body.highlighted .related-card{border:2px solid #eeb936!important;background:#fff6ca!important;box-shadow:0 0 0 3px #fff4ae,0 0 13px 3px #eab30855!important;font-weight:800}
+body.highlighted .related-card .task-name{font-weight:900!important}
+body.highlighted .cross-relation{stroke:#e4a81e!important;stroke-width:4!important;filter:drop-shadow(0px 0px 4px #facc15)}
+@media(max-width:1200px){.app{grid-template-columns:minmax(0,1fr) 330px!important}.side{position:sticky!important}}
+@media(max-width:800px){.app{display:block!important;padding-top:125px!important}.board{width:100%}.side{position:relative!important;top:8px!important;height:auto!important}body.editor-collapsed .side{display:none}.toolbar-secondary .hint{min-width:210px}}
+
+
+/* V5: fixed single-row toolbar; aligned board/sidebar */
+:root{--topbar-h:64px}
+body .toolbar{position:fixed!important;top:0!important;left:0!important;right:0!important;display:block!important;padding:8px 12px!important;z-index:999!important;overflow:hidden}
+body .toolbar-primary{display:flex!important;flex-wrap:nowrap!important;align-items:center!important;gap:8px!important;overflow-x:auto!important;border:0!important;min-height:46px;scrollbar-width:thin}
+body .toolbar-primary h1{font-size:15px!important;margin-right:8px;flex:none}
+body .toolbar-primary .hint{font-size:11px!important;color:#6b7280!important;flex:none;max-width:350px;line-height:1.3}
+body .toolbar-primary .range-control{flex:none;display:flex;align-items:center;gap:3px;white-space:nowrap;font-size:11px}
+body .toolbar-primary .range-control input{width:65px}
+body .toolbar-primary button,body .toolbar-primary .btn{padding:7px 9px;font-size:12px;flex:none}
+body #cloudStatus{font-size:11px;color:#64748b;white-space:nowrap}
+body .app{display:grid!important;grid-template-columns:minmax(0,1fr) 330px!important;gap:12px!important;align-items:start!important;padding:calc(var(--topbar-h) + 10px) 12px 12px!important}
+body .board{min-width:0!important;align-self:start!important;margin:0!important}
+body .side{position:sticky!important;top:calc(var(--topbar-h) + 10px)!important;align-self:start!important;margin:0!important;height:calc(100vh - var(--topbar-h) - 22px)!important;overflow:visible!important;padding-top:18px!important}
+body .side> :not(#edgeToggle){position:relative}
+#edgeToggle{position:absolute;z-index:999;left:-18px;top:35%;transform:translateY(-50%);width:23px;height:62px;border:1px solid #cbd5e1;border-radius:10px 0 0 10px;background:white;box-shadow:-3px 0 7px #0001;color:#334155;font-size:16px;cursor:pointer;padding:0}
+#edgeToggle:hover{background:#eaf2ff}
+body.editor-collapsed .app{grid-template-columns:minmax(0,1fr) 0!important;gap:0!important}
+body.editor-collapsed .side{display:block!important;width:0!important;padding:0!important;border:0!important;box-shadow:none!important;overflow:visible!important}
+body.editor-collapsed .side>:not(#edgeToggle){display:none!important}
+body.editor-collapsed #edgeToggle{left:-24px;top:70px;border-radius:10px 0 0 10px}
+/* cross-line paths stay visible beneath labels, never occluded by cards */
+body .cross-svg{z-index:11!important;pointer-events:none!important;overflow:visible!important}
+body .section .node{z-index:15!important}
+body .timeline-task-card{z-index:12!important;position:absolute}
+body.highlighted .cross-relation{stroke:#dca10b!important;stroke-width:5!important;stroke-dasharray:7 6!important;opacity:1!important;filter:drop-shadow(0 0 3px #ffcc25) drop-shadow(0 0 4px #facc15)!important}
+body .cross-relation{opacity:.75}
+body.highlighted .related-card{border-color:#e7ac17!important;background:#fff6d5!important;box-shadow:0 0 0 2px #ffec9b,0 0 12px #ffca3280!important}
+/* Overlay creates the connector over cards, with glow; dashed leaders remain unobtrusive. */
+@media(max-width:850px){body .app{grid-template-columns:minmax(0,1fr)!important}body .side{position:fixed!important;right:0;top:var(--topbar-h)!important;bottom:0;height:auto!important;width:min(340px,92vw)!important;z-index:500;box-shadow:-8px 0 30px #0002}body.editor-collapsed .side{width:0!important}body .toolbar-primary{overflow-x:auto!important}}
+/* cloud setup popup */
+#cloudDialog{position:fixed;z-index:2000;inset:0;background:#15213a88;display:none;align-items:center;justify-content:center;padding:14px}
+#cloudDialog.open{display:flex}
+#cloudDialog .dialog-panel{width:min(530px,100%);max-height:88vh;overflow:auto;background:white;border-radius:16px;padding:20px;box-shadow:0 25px 60px #0003}
+#cloudDialog textarea{width:100%;min-height:132px;border:1px solid #cbd5e1;border-radius:9px;padding:10px;font:12px monospace;resize:vertical}
+#cloudDialog button{cursor:pointer;padding:9px 12px;border-radius:8px;border:0;background:#111827;color:white;margin:5px 5px 5px 0}
+#cloudDialog button.light{background:#e2e8f0;color:#1e293b}
+#cloudDialog p{font-size:13px;line-height:1.55;color:#475569}
+#onlineCount{position:fixed;bottom:13px;right:17px;padding:9px 13px;border-radius:999px;background:#17345e;color:white;font-size:12px;z-index:850;box-shadow:0 4px 16px #0003;display:none}
+
+/* V6: single primary row and subtitle */
+body .toolbar{overflow:visible!important;padding-bottom:4px!important}
+body .toolbar-primary{width:100%;overflow-x:auto!important;min-height:42px;gap:6px!important}
+.toolbar-subtitle{padding:5px 4px 4px;font-size:12px;color:#667085;line-height:1.4;white-space:normal}
+body .app{padding-top:112px!important}
+.timeline-task-card{box-sizing:border-box;min-height:48px;overflow-wrap:anywhere;touch-action:none;cursor:grab}
+.timeline-task-card.dragging{cursor:grabbing;opacity:.90;z-index:60!important}
+.timeline-task-card .resize-corner{position:absolute;width:12px;height:12px;background:#fff;border:2px solid #3b82f6;border-radius:4px;z-index:10;opacity:0;touch-action:none}
+.timeline-task-card:hover .resize-corner,.timeline-task-card.manual-selected .resize-corner{opacity:1}
+.resize-corner.nw{left:-6px;top:-6px;cursor:nwse-resize}.resize-corner.ne{right:-6px;top:-6px;cursor:nesw-resize}.resize-corner.sw{left:-6px;bottom:-6px;cursor:nesw-resize}.resize-corner.se{right:-6px;bottom:-6px;cursor:nwse-resize}
+.timeline-task-card{height:auto}
+.timeline-task-card .task-name{overflow-wrap:anywhere}
+.timeline-task-card.manual-selected,.section .node.manual-selected{outline:3px solid #f2b414!important;box-shadow:0 0 0 6px #fff1a1,0 0 20px #fbbf2477!important;background:#fff7d1!important;color:#111827!important;z-index:90!important}
+.section .node.manual-selected{background:#f59e0b!important;color:white!important}
+.relation-panel{padding:12px;border:1px solid #f8d37e;background:#fffaf0;border-radius:12px;margin:12px 0}
+.relation-panel h3{margin:0 0 7px;font-size:15px}.relation-panel p{font-size:12px;color:#735c38;line-height:1.5}
+.relation-tags{display:flex;flex-wrap:wrap;gap:5px;font-size:12px}.relation-tags span{padding:4px 6px;border-radius:7px;background:#ffedaf}
+body.highlighted .explicit-related{box-shadow:0 0 0 5px #fff0ab,0 0 16px #facc1588!important;border-color:#eab308!important}
+.cross-svg{pointer-events:none!important}
+
+/* V7: side panel as separate swapping pages, independent scrolling and smooth rendering */
+body .side{overflow:hidden!important;display:flex!important;flex-direction:column!important;min-height:0!important;contain:layout style}
+body.editor-collapsed .side{overflow:visible!important}
+body .side-page{display:none;min-height:0;flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;scroll-behavior:auto;padding:2px 6px 18px 2px;transform:translateX(16px);opacity:0;transition:transform .20s ease,opacity .20s ease;will-change:transform,opacity}
+body .side-page.active-side-page{display:block;transform:translateX(0);opacity:1;animation:arhkSwap .23s ease-out}
+@keyframes arhkSwap{from{opacity:.2;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}}
+body .relation-panel{margin:0!important;padding:12px!important;border:none!important;background:#fffaf3!important}
+.relation-page-header{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap}
+.relation-page-header h3{margin:0;font-size:17px}
+#relateModeBtn.mode-active{background:#fff1a8!important;color:#7c5200!important;border:1px solid #efbe38!important}
+.section .node.manual-selected{position:absolute;z-index:100!important;outline:3px solid #fff4aa!important;box-shadow:0 0 0 6px #facb34,0 0 22px 8px #facc15aa!important;background:#edaa00!important;color:white!important}
+.timeline-task-card.manual-selected{z-index:99!important}
+/* scrolling: don't promote hundreds of static cards to composite layers */
+body .timeline-task-card:not(.dragging){will-change:auto!important}
+body .board{overscroll-behavior:contain;scroll-behavior:auto; -webkit-overflow-scrolling:touch}
+@media(prefers-reduced-motion:reduce){body .side-page{transition:none!important;animation:none!important}}
+
+/* V8: tidy control groups, smooth scrolling and visible relationship anchors */
+html,body{overflow-y:auto!important;overscroll-behavior-y:auto!important;scroll-behavior:auto!important}
+body .board{overscroll-behavior-y:auto!important;overflow-y:visible!important;overflow-x:auto!important}
+body .app{align-items:start}
+.toolbar-primary{justify-content:space-between;overflow-x:auto!important;gap:10px!important}
+.toolbar-group{display:flex;align-items:center;gap:5px;padding:3px 8px;border:1px solid #e8edf6;border-radius:12px;background:#f8fafc;flex:none}
+.toolbar-group.node-tools{margin-left:auto;background:#edf4ff;border-color:#d7e5fb}
+.group-title{font-size:11px;color:#64748b;font-weight:700;margin-right:2px}
+.toolbar-primary h1{font-size:15px!important;margin-right:8px!important}
+body .cross-svg{z-index:9!important;pointer-events:none!important}
+body .section .node,body .timeline-task-card{z-index:12!important}
+.task-connector{fill:none;stroke:#7bb6f5;stroke-width:1.8;stroke-dasharray:4 4;pointer-events:none}
+.task-connector.explicit-connector{stroke:#d7a10b;stroke-width:3}
+body.highlighted .task-connector.explicit-connector{stroke:#e2a800;stroke-width:4;filter:drop-shadow(0 0 3px #ffcc25)}
+body.highlighted .explicit-related{outline:3px solid #f0bc2d!important;box-shadow:0 0 0 6px #fff1a5,0 0 17px 6px #f7ba3388!important;background:#fff4cb!important;font-weight:800!important}
+body.highlighted .node.explicit-related{background:#d99a05!important;color:white!important}
+body .timeline-task-card{cursor:grab}
+body .side-page{overscroll-behavior-y:auto!important}
+
+
+/* V9: Apple-inspired single-layer toolbar + stable viewport editor */
+:root { --topbar-h: 94px; --v9-gap:12px; }
+html { overflow-x:hidden!important; }
+body {margin:0!important; background:#f5f5f7!important; overflow-x:hidden!important; color:#1d1d1f!important;}
+body .toolbar { position:fixed!important; top:0!important; left:0!important; right:0!important; width:100%!important; z-index:9999!important; box-sizing:border-box!important; overflow:visible!important; background:rgba(255,255,255,.96)!important; border:0!important; border-bottom:1px solid #e5e5ea!important; box-shadow:0 2px 14px rgba(0,0,0,.035)!important; padding:10px 16px 8px!important; backdrop-filter:blur(18px)!important; -webkit-backdrop-filter:blur(18px)!important;}
+body .toolbar-primary { display:flex!important; flex-wrap:wrap!important; align-items:center!important; justify-content:flex-start!important; width:100%!important; height:auto!important; min-height:36px!important; overflow-x:visible!important; overflow-y:visible!important; gap:7px 10px!important; scrollbar-width:none!important; }
+body .toolbar-primary h1 {font-size:17px!important; font-weight:700!important; letter-spacing:-.45px!important; padding:0 12px 0 0!important; margin:0!important; color:#1d1d1f!important;}
+body .toolbar-group,body .toolbar-group.node-tools {background:transparent!important; border:0!important; border-radius:0!important; padding:0!important; margin:0!important; box-shadow:none!important; display:flex!important;align-items:center!important; flex:0 1 auto!important; gap:5px!important; min-width:0!important;}
+body .toolbar-group.node-tools { margin-left:auto!important; }
+body .toolbar-group .group-title {font-size:11px!important; font-weight:600!important; color:#8e8e93!important; padding:0 4px 0 0!important;}
+body .toolbar button,body .toolbar label.btn {background:#f1f2f5!important;color:#2c2c2e!important;border:1px solid transparent!important;border-radius:10px!important;padding:8px 11px!important;font-size:12px!important;font-weight:550!important; box-shadow:none!important; transition:background .16s ease,transform .16s ease!important;white-space:nowrap!important;}
+body .toolbar button:hover,body .toolbar label.btn:hover {background:#e5e7ed!important;}
+body .toolbar button:active {transform:scale(.975)!important;}
+body .toolbar #addNodeBtn {background:#007aff!important;color:white!important;}
+body .toolbar .range-control {gap:4px!important;white-space:nowrap!important; flex:0 1 auto!important; color:#636366!important;font-size:12px!important;}
+body .toolbar .range-control input {width:clamp(48px,6vw,90px)!important;accent-color:#007aff!important;}
+body .toolbar .range-control b {font-size:11px!important;font-weight:600!important;min-width:30px!important;}
+body .toolbar-subtitle {padding:7px 1px 0!important; color:#86868b!important; font-size:11px!important; line-height:1.35!important;}
+body .app {display:grid!important; grid-template-columns:minmax(0,1fr) 330px!important; gap:var(--v9-gap)!important; align-items:start!important; padding:calc(var(--topbar-h) + var(--v9-gap)) 12px 12px!important; width:100%!important; box-sizing:border-box!important; }
+body .board {position:relative!important; width:100%!important; min-width:0!important; overflow-x:auto!important; overflow-y:visible!important; border:1px solid #e9e9ed!important; border-radius:16px!important; box-shadow:0 3px 18px rgba(0,0,0,.035)!important;}
+body .side {position:fixed!important; top:calc(var(--topbar-h) + var(--v9-gap))!important; right:12px!important; bottom:12px!important; width:330px!important; height:auto!important; max-height:calc(100dvh - var(--topbar-h) - 24px)!important; margin:0!important; padding:17px!important; border:1px solid #e9e9ed!important; border-radius:16px!important; box-shadow:0 5px 20px rgba(0,0,0,.045)!important; overflow:hidden!important; display:flex!important; flex-direction:column!important; align-self:unset!important; background:white!important; contain:none!important; }
+body .side-page {flex:1 1 auto!important; min-height:0!important; overflow-y:auto!important; overscroll-behavior-y:auto!important;}
+body.editor-collapsed .app {grid-template-columns:minmax(0,1fr)!important;}
+body.editor-collapsed .side {display:block!important; width:0!important; right:12px!important; padding:0!important; border:0!important; background:transparent!important; box-shadow:none!important;}
+body.editor-collapsed .side>:not(#edgeToggle) {display:none!important;}
+body .side h2 {font-size:20px!important;letter-spacing:-.5px!important;}
+body .side .actions button {border-radius:10px!important;}
+@media(max-width:850px) {body .app{grid-template-columns:minmax(0,1fr)!important;} body .side{z-index:800!important; width:min(330px,calc(100vw - 30px))!important;right:10px!important;box-shadow:-8px 5px 28px #0000001b!important;} body.editor-collapsed .side{width:0!important;} body .toolbar-group.node-tools{margin-left:0!important;} }
+@media(max-width:570px) {body .toolbar{padding:9px!important;} body .toolbar-primary{gap:5px!important;}body .toolbar-group .group-title{display:none!important;}body .toolbar button,body .toolbar label.btn{font-size:11px!important;padding:7px 8px!important;} body .toolbar-primary h1{width:100%;padding:0!important;}body .toolbar .range-control input{width:52px!important;} }
+
+
+/* V10 — restrained glass, semantic hierarchy, two-row toolbar */
+:root { --accent:#c76548; --ink:#222326; --canvas:#f4f5f7; --glass:rgba(255,255,255,.79); }
+body { background:var(--canvas)!important; color:var(--ink)!important; -webkit-font-smoothing:antialiased; }
+body .toolbar {background:var(--glass)!important;backdrop-filter:blur(22px) saturate(120%)!important;-webkit-backdrop-filter:blur(22px) saturate(120%)!important;border-bottom:1px solid rgba(65,65,70,.1)!important;box-shadow:0 3px 20px #11111108!important;padding:10px 20px 9px!important;}
+body .toolbar-title {display:flex;align-items:center;min-height:36px;padding:0 2px 8px;}
+body .toolbar-title h1 {font-size:20px!important;font-weight:680!important;color:#202124!important;letter-spacing:-.55px;margin:0!important;line-height:1.35;}
+body .toolbar-title .english {font-size:14px;font-weight:500;color:#85868a;letter-spacing:.05px;margin-left:10px;}
+body .toolbar-primary {display:flex!important;align-items:center!important;flex-wrap:wrap!important;gap:7px 13px!important;min-height:37px!important;}
+body .toolbar-group,body .toolbar-group.node-tools {background:transparent!important;border:none!important;box-shadow:none!important;padding:0!important;gap:6px!important;}
+body .toolbar button, body .toolbar label.btn {background:rgba(235,236,240,.85)!important;border:1px solid rgba(50,50,55,.035)!important;color:#35363a!important;border-radius:10px!important;padding:8px 11px!important;box-shadow:none!important;font-weight:550!important;}
+body .toolbar button:hover,body .toolbar label.btn:hover {background:#e3e4e8!important;}
+body .toolbar #addNodeBtn {background:#bd6a53!important;color:white!important;}
+body .toolbar .range-control input {accent-color:#bd6a53!important;}
+body .toolbar .group-title {font-weight:500!important;color:#9b9ba0!important;}
+body .toolbar-subtitle {padding:6px 2px 0!important;font-size:11px!important;color:#9b9da3!important;}
+body .board,body .side {background:rgba(255,255,255,.84)!important;box-shadow:0 12px 35px #1a1c2410!important;border:1px solid #e9e9ec!important;}
+body .side {backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);}
+body .timeline-task-card {border-color:#e1e2e6!important;border-radius:12px!important;}
+body.highlighted .related-node,body.highlighted .explicit-related.node {box-shadow:0 0 0 3px #edb96a80,0 0 11px #dc9a4990!important;outline-color:#cd8a32!important;}
+body.highlighted .related-card,body.highlighted .explicit-related.timeline-task-card {border-color:#d5aa67!important;background:#fff6e2!important;box-shadow:0 0 0 2px #ecd59f,0 0 12px #e9bd7270!important;}
+body.highlighted .cross-relation,body.highlighted .explicit-connector {stroke:#d89a40!important;filter:drop-shadow(0 0 3px #d79d52)!important;}
+@media(max-width:650px){body .toolbar-title h1{font-size:16px!important;}body .toolbar-title .english{font-size:12px;}body .toolbar{padding:8px 10px!important;}}
+
+</style>
+<style id="line-reorder-style">
+.rail-row{cursor:grab;user-select:none;transition:background .14s ease,opacity .14s ease}
+.rail-row:active{cursor:grabbing}
+.rail-row.line-dragging{opacity:.4;background:#f2f4f7}
+.rail-row.line-drop-target{background:#f0f5ff;outline:2px solid #a1b9e6;outline-offset:-2px}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="board">
+    <div class="toolbar" id="mainToolbar">
+      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span></h1></div>
+      <div class="toolbar-primary">
+        <div class="toolbar-group" aria-label="文件导入导出">
+          <span class="group-title">文件</span>
+          <button id="exportBtn" class="secondary">导出JSON</button>
+          <label class="btn secondary" for="importFile">导入JSON</label><input id="importFile" type="file" accept="application/json" />
+          <button id="pngBtn" class="secondary">导出PNG</button><button id="pdfBtn" class="secondary">导出PDF</button>
+        </div>
+        <div class="toolbar-group" aria-label="视觉调整">
+          <span class="group-title">调整</span>
+          <label class="range-control">间距 <input id="spacingRange" type="range" min="72" max="230" value="105" step="5"><b id="spacingValue">105</b></label>
+          <label class="range-control">缩放 <input id="zoomRange" type="range" min="60" max="160" value="100" step="5"><b id="zoomValue">100%</b></label>
+          <label class="range-control">字体 <input id="fontRange" type="range" min="11" max="20" value="12" step="1"><b id="fontValue">12px</b></label>
+        </div>
+        <div class="toolbar-group" aria-label="视图设置"><span class="group-title">视图</span><button id="fitBtn" class="secondary">适合屏幕</button><button id="resetBtn" class="secondary">恢复默认</button></div>
+        <div class="toolbar-group node-tools" aria-label="节点工具"><span class="group-title">节点</span><button id="addNodeBtn">新增节点</button><button id="highlightBtn" class="secondary">高亮关联节点</button><button id="relateModeBtn" class="secondary" type="button">编辑关联节点</button></div>
+      </div>
+      <div class="toolbar-subtitle">点击时间节点或黄色待定标签即可编辑。系统会自动按完成日期重新排布，并为同日节点加竖向虚线。</div>
+    </div>
+    <div class="timeline-wrap" id="timelineWrap">
+      <div class="months" id="months"></div>
+      <svg class="cross-svg" id="crossSvg"></svg>
+      <div class="sections" id="sections"></div>
+    </div>
+  </div>
+  <aside class="side" id="editSide"><button id="edgeToggle" type="button" aria-label="收起编辑栏" title="收起或展开编辑栏">◀</button>
+    <div id="nodeEditorView" class="side-page active-side-page"><h2>节点编辑</h2>
+    <div class="tip">这是简易版时间流程图：每个节点只显示“预计完成时间点”。没有填完成日期的任务会放在对应线路的“待定事项”里。</div>
+    <div id="emptyState" class="footer-note">请先点击左侧任一节点或“新增节点”。</div>
+    <div id="editor" style="display:none;">
+      <div class="row2">
+        <div class="field"><label>节点ID</label><input id="f_id" /></div>
+        <div class="field"><label>所属线路</label><select id="f_line"></select></div>
+      </div>
+      <div class="field"><label>节点标题</label><input id="f_title" /></div>
+      <div class="row2">
+        <div class="field"><label>预计完成日期</label><input id="f_date" type="date" /></div>
+        <div class="field"><label>状态</label>
+          <select id="f_status">
+            <option>已完成</option><option>进行中</option><option>未开始</option><option>待确认</option><option>暂停</option>
+          </select>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>文字位置</label>
+          <select id="f_place"><option value="above">在线上方</option><option value="below">在线下方</option></select>
+        </div>
+        <div class="field"><label>简短备注</label><input id="f_note_short" placeholder="如：预计1周/日期待定" /></div>
+      </div>
+      <div class="field"><label>详细备注</label><textarea id="f_note"></textarea></div>
+      <div class="actions">
+        <button class="primary" id="saveBtn">保存修改</button>
+        <button class="ghost" id="duplicateBtn">复制节点</button>
+        <button class="danger" id="deleteBtn">删除节点</button>
+        <button class="muted" id="cancelBtn">取消选择</button>
+      </div>
+    </div>
+    </div><section id="relationPanel" style="display:none" class="relation-panel side-page">
+      <div class="relation-page-header"><h3>编辑关联节点</h3><button id="relationBackTop" type="button" class="ghost">返回节点编辑 ↩</button></div>
+      <p>点击左侧多个日期圆点或任务文字框选择节点。选中项以金黄色高亮；点击已选项可取消选择。</p>
+      <div id="relationSelection" class="relation-tags">尚未选择节点</div>
+      <div class="actions"><button id="relationConfirm" class="primary">确定关联</button><button id="relationRemove" class="danger">解除选中节点之间的关联</button><button id="relationCancel" class="muted">退出关联编辑</button></div>
+    </section>
+    <div class="legend">
+      <div class="legend-item"><span class="swatch" style="background:#27AE60"></span> 已完成</div>
+      <div class="legend-item"><span class="swatch" style="background:#2F80ED"></span> 进行中</div>
+      <div class="legend-item"><span class="swatch" style="background:#7f8a98"></span> 未开始</div>
+      <div class="legend-item"><span class="swatch" style="background:#E0A800"></span> 待确认 / 日期待定</div>
+    </div>
+    <div class="footer-note">建议用 Chrome 打开。编辑内容会自动保存在当前浏览器；如需分享给他人，请先导出 JSON 备份。</div>
+  </aside>
+</div>
+<script>
+const DEFAULT_DATA = [{"id": "A", "name": "A线｜汇丰债务和解及共同前置工作", "color": "#2F80ED", "nodes": [{"id": "A00", "title": "整体退出请示授权", "date": "2026-10-30", "status": "进行中", "note": "已启动请示初稿，尚未正式取得授权", "placement": "above"}], "pending": [{"id": "A01", "title": "商定债务和解方案", "status": "进行中", "note": "已口头初步达成一致，待正式确认函"}, {"id": "A02", "title": "正式签署和解协议", "status": "未开始", "note": "签署日期待定"}, {"id": "A03", "title": "拟定最终协议初步条款", "status": "未开始", "note": "与汇丰正式签约同步启动"}, {"id": "A04", "title": "编制收购及处置方案", "status": "未开始", "note": "预计审批需2-3周"}, {"id": "A05", "title": "支付债务清偿款", "status": "未开始", "note": "按MoU及和解协议约定执行"}]}, {"id": "B", "name": "B线｜东江环保所持欧晟揭阳股权交易", "color": "#F2994A", "nodes": [{"id": "B01", "title": "运营管理服务协议", "date": "2026-09-30", "status": "已完成", "note": "已完成签署", "placement": "above"}, {"id": "B02", "title": "候选收渣单位签约", "date": "2026-10-23", "status": "进行中", "note": "正在磋商", "placement": "below"}, {"id": "B04", "title": "取得评估审计报告", "date": "2026-10-30", "status": "未开始", "note": "对应评估审计结果", "placement": "above"}, {"id": "B03", "title": "启动股权挂牌程序", "date": "2026-11-06", "status": "未开始", "note": "可同步启动内部审批流程", "placement": "below"}, {"id": "B05", "title": "挂牌信息披露", "date": "2026-11-20", "status": "未开始", "note": "含20个工作日公示要求", "placement": "above"}, {"id": "B06", "title": "组织产权交易竞价", "date": "2026-11-27", "status": "未开始", "note": "按披露方式组织竞价", "placement": "below"}, {"id": "B07", "title": "签署产权交易合同", "date": "2026-12-04", "status": "未开始", "note": "根据评估结果签署", "placement": "above"}, {"id": "B08", "title": "交易结果公告", "date": "2026-12-11", "status": "未开始", "note": "原计划公告期5个工作日", "placement": "below"}], "pending": []}, {"id": "C", "name": "C线｜欧绿保股权及德国资产交易、最终交割", "color": "#9B51E0", "nodes": [{"id": "C01", "title": "召开评估机构董事会", "date": "2026-09-30", "status": "已完成", "note": "已召开董事会", "placement": "above"}, {"id": "C02", "title": "正式委任评估机构", "date": "2026-10-23", "status": "进行中", "note": "待尾款支付后正式启动评估", "placement": "below"}, {"id": "C05", "title": "签署最终交易协议", "date": "2026-11-17", "status": "未开始", "note": "原计划11月17日，欧绿保曾暂定11月3日", "placement": "above"}, {"id": "C03", "title": "提交最终估值报告", "date": "2026-11-19", "status": "进行中", "note": "正式委任后约6周", "placement": "below"}, {"id": "C04", "title": "协议及公证文件对齐", "date": "2026-11-19", "status": "未开始", "note": "与估值报告节点接近", "placement": "above"}, {"id": "C06", "title": "反垄断合并控制申报", "date": "2026-11-19", "status": "未开始", "note": "提交申请，不代表获批", "placement": "below"}, {"id": "C07", "title": "电子集团审议收购", "date": "2026-11-26", "status": "未开始", "note": "预计1周", "placement": "above"}, {"id": "C08", "title": "广晟集团审议收购", "date": "2026-12-04", "status": "未开始", "note": "预计1周", "placement": "below"}, {"id": "C09", "title": "香港股权变更登记", "date": "2026-12-18", "status": "未开始", "note": "预计2周", "placement": "above"}, {"id": "C10", "title": "国资备案及产权登记", "date": "2027-01-15", "status": "未开始", "note": "顺利情况下约4-5周", "placement": "below"}, {"id": "C11", "title": "完成欧绿保退出交割", "date": "2027-01-30", "status": "未开始", "note": "支付转让款并完成交割", "placement": "above"}], "pending": []}, {"id": "D", "name": "D线｜评估审计及国资审批", "color": "#27AE60", "nodes": [{"id": "D01", "title": "确定评估机构及方案", "date": "2026-09-24", "status": "已完成", "note": "已完成", "placement": "above"}, {"id": "D02", "title": "完成评估审计选聘", "date": "2026-09-24", "status": "已完成", "note": "已启动并完成选聘", "placement": "below"}, {"id": "D03", "title": "预沟通及资料预审", "date": "2026-09-28", "status": "已完成", "note": "已沟通", "placement": "above"}, {"id": "D05", "title": "中介选聘结果备案", "date": "2026-10-16", "status": "未开始", "note": "可与评估同步进行", "placement": "below"}, {"id": "D04", "title": "评估审计机构进场", "date": "2026-10-19", "status": "已完成", "note": "已进场", "placement": "above"}, {"id": "D06", "title": "提交审计初稿", "date": "2026-10-19", "status": "未开始", "note": "事务所提交并沟通", "placement": "below"}, {"id": "D07", "title": "提交评估报告初稿", "date": "2026-10-23", "status": "未开始", "note": "评估机构提交", "placement": "above"}, {"id": "D08", "title": "组织评估专家评审", "date": "2026-10-26", "status": "未开始", "note": "是否需要评审待确认", "placement": "below"}, {"id": "D10", "title": "正式出具评估审计报告", "date": "2026-10-30", "status": "未开始", "note": "与公示先后顺序需关注", "placement": "above"}, {"id": "D09", "title": "评估结果公示", "date": "2026-11-09", "status": "未开始", "note": "10个工作日", "placement": "below"}, {"id": "D11", "title": "电子集团审议评估结果", "date": "2026-11-17", "status": "未开始", "note": "是否需要过会待确认", "placement": "above"}, {"id": "D12", "title": "广晟集团审议评估结果", "date": "2026-11-24", "status": "未开始", "note": "是否需要过会待确认", "placement": "below"}, {"id": "D13", "title": "签署德国资产转让协议", "date": "2026-12-01", "status": "未开始", "note": "与股权转让协议属一揽子安排", "placement": "above"}, {"id": "D14", "title": "签署香港股权转让协议", "date": "2026-12-01", "status": "未开始", "note": "与D13同期签署", "placement": "below"}], "pending": []}, {"id": "E", "name": "E线｜欧晟揭阳整体转让", "color": "#00A3A3", "nodes": [{"id": "E01", "title": "整体挂牌请示及审批", "date": "2026-10-30", "status": "未开始", "note": "完成三家方案对比上报集团", "placement": "above"}, {"id": "E02", "title": "预挂牌", "date": "2027-02-19", "status": "未开始", "note": "原计划公示20个工作日", "placement": "below"}, {"id": "E03", "title": "正式挂牌", "date": "2027-03-19", "status": "未开始", "note": "原计划公示20个工作日", "placement": "above"}, {"id": "E04", "title": "摘牌", "date": "2027-04-02", "status": "未开始", "note": "挂牌期满后安排", "placement": "below"}, {"id": "E05", "title": "电子集团审议转让", "date": "2027-04-09", "status": "未开始", "note": "需确认是否需要过会", "placement": "above"}, {"id": "E06", "title": "广晟集团审议转让", "date": "2027-04-16", "status": "未开始", "note": "需确认是否需要过会", "placement": "below"}, {"id": "E07", "title": "签署产权交易合同", "date": "2027-04-23", "status": "未开始", "note": "签署交易合同", "placement": "above"}, {"id": "E08", "title": "完成产权变更登记", "date": "2027-05-07", "status": "未开始", "note": "最终完成节点", "placement": "below"}], "pending": []}];
+const STORAGE_KEY = 'ousheng-simple-timeline-v1';
+let state = loadState();
+let selected = null;
+const V6_STORAGE='arhk-v6-layout-relations';
+let extras=(()=>{try{return JSON.parse(localStorage.getItem(V6_STORAGE))||{}}catch(e){return {}}})();
+extras.layouts ||= {};extras.groups ||= [];
+function persistExtras(){localStorage.setItem(V6_STORAGE,JSON.stringify(extras));}
+let associationMode=false;const associationSelection=new Set();
+function nodeKey(line,id){return line+':'+id;}
+function associationClick(line,id){
+ const key=nodeKey(line,id);if(associationSelection.has(key))associationSelection.delete(key);else associationSelection.add(key);
+ updateAssociationUI();
+}
+function updateAssociationUI(){
+ document.querySelectorAll('.manual-selected').forEach(el=>el.classList.remove('manual-selected'));
+ for(const key of associationSelection){
+  const [line,id]=key.split(':');
+  const found=findItem(line,id);
+  document.querySelectorAll('[data-line][data-id]').forEach(el=>{
+    if(el.dataset.line!==line)return;
+    const other=findItem(line,el.dataset.id);
+    if(el.dataset.id===id || (el.classList.contains('node') && found?.item.date && other?.item.date===found.item.date))el.classList.add('manual-selected');
+  });
+ }
+ const wrap=document.getElementById('relationSelection');wrap.innerHTML='';
+ for(const key of associationSelection){const sp=document.createElement('span');sp.textContent=key;wrap.appendChild(sp)}
+ if(!associationSelection.size)wrap.textContent='尚未选择节点';
+}
+function startAssociation(){
+ associationMode=true; associationSelection.clear();
+ document.body.classList.remove('editor-collapsed');
+ document.getElementById('nodeEditorView').classList.remove('active-side-page');
+ document.getElementById('relationPanel').style.display='block';
+ document.getElementById('relationPanel').classList.add('active-side-page');
+ document.getElementById('relateModeBtn').classList.add('mode-active');
+ requestAnimationFrame(()=>{render();updateAssociationUI()});
+}
+function stopAssociation(){
+ associationMode=false;associationSelection.clear();
+ document.getElementById('relationPanel').classList.remove('active-side-page');
+ document.getElementById('nodeEditorView').classList.add('active-side-page');
+ document.getElementById('relateModeBtn').classList.remove('mode-active');
+ window.setTimeout(()=>{document.getElementById('relationPanel').style.display='none'},220);
+ updateAssociationUI();render();
+}
+function saveRelation(){const ids=[...associationSelection];if(ids.length<2){alert('请选择至少两个节点');return}extras.groups.push(ids);extras.groups=[...new Map(extras.groups.map(x=>[x.slice().sort().join('|'),x])).values()];persistExtras();stopAssociation();}
+function removeRelation(){const ids=new Set(associationSelection);extras.groups=extras.groups.filter(g=>{const leftover=g.filter(x=>!ids.has(x));return leftover.length>1});persistExtras();stopAssociation();}
+const lineOrder = Array.isArray(state.lineOrder) && state.lineOrder.length===5 ? [...state.lineOrder] : ['A','B','C','D','E'];
+const lineColors = Object.fromEntries(state.lines.map(l => [l.id, l.color]));
+const sectionsEl = document.getElementById('sections');
+const monthsEl = document.getElementById('months');
+const crossSvg = document.getElementById('crossSvg');
+const timelineWrap = document.getElementById('timelineWrap');
+const editor = document.getElementById('editor');
+const emptyState = document.getElementById('emptyState');
+
+function loadState(){
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw) return JSON.parse(raw);
+  } catch(e){}
+  return structuredClone({lines: DEFAULT_DATA});
+}
+function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); if(window.queueCloudSave) window.queueCloudSave(); }
+function deepClone(obj){ return JSON.parse(JSON.stringify(obj)); }
+function statusClass(s){
+  if(s==='已完成') return 'status-complete';
+  if(s==='进行中') return 'status-progress';
+  if(s==='待确认') return 'status-pending';
+  if(s==='暂停') return 'status-paused';
+  return 'status-notstart';
+}
+function parseDate(str){ if(!str) return null; const d = new Date(str+'T00:00:00'); return isNaN(d)?null:d; }
+function fmtDate(str){ if(!str) return '待定'; const d=parseDate(str); if(!d) return str; const m=d.getMonth()+1, day=d.getDate(); return `${m}/${String(day).padStart(2,'0')}`; }
+function fmtFull(str){ if(!str) return '日期待定'; const d=parseDate(str); if(!d) return str; return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`; }
+function getDatedNodes(){ return state.lines.flatMap(l=>l.nodes.filter(n=>n.date).map(n=>({line:l.id,node:n}))); }
+function getRange(){
+  const dated = getDatedNodes().map(x=>parseDate(x.node.date)).filter(Boolean).sort((a,b)=>a-b);
+  const start = new Date(dated[0]); start.setDate(start.getDate()-7);
+  const end = new Date(dated[dated.length-1]); end.setDate(end.getDate()+14);
+  return {start,end};
+}
+function daysBetween(a,b){ return Math.round((b-a)/(1000*60*60*24)); }
+function xForDate(dateStr, left, width, range){
+  const d = parseDate(dateStr); if(!d) return left + width - 60;
+  const total = daysBetween(range.start, range.end);
+  const offset = daysBetween(range.start, d);
+  return left + (offset/total)*width;
+}
+function renderMonths(range, left, width){
+  monthsEl.innerHTML='';
+  const total = daysBetween(range.start, range.end);
+  // weeks grid
+  let cur = new Date(range.start);
+  while(cur <= range.end){
+    const x = left + (daysBetween(range.start, cur)/total)*width;
+    const w = document.createElement('div'); w.className='week-line'; w.style.left = `${x}px`; monthsEl.appendChild(w);
+    cur.setDate(cur.getDate()+7);
+  }
+  // month labels
+  let m = new Date(range.start.getFullYear(), range.start.getMonth(), 1);
+  while(m <= range.end){
+    const x = left + (daysBetween(range.start, m)/total)*width;
+    const lab = document.createElement('div'); lab.className='month-label'; lab.style.left=`${x}px`; lab.textContent=`${m.getFullYear()}年${m.getMonth()+1}月`; monthsEl.appendChild(lab);
+    const line = document.createElement('div'); line.className='month-line'; line.style.left=`${x}px`; monthsEl.appendChild(line);
+    m = new Date(m.getFullYear(), m.getMonth()+1, 1);
+  }
+}
+function shortMeta(n){ return n.note_short || fmtFull(n.date); }
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function render(){
+  // Equal-size date columns prevent collisions; shared calendar dates always use one x coordinate.
+  const dateKeys=[...new Set(getDatedNodes().map(x=>x.node.date))].sort();
+  const LEFT=Number(document.documentElement.style.getPropertyValue("--left-size").replace("px", ""))||255, COL=Number(document.getElementById("spacingRange").value), END=110;
+  const width=LEFT+Math.max(1,dateKeys.length)*COL+END;
+  timelineWrap.style.width=width+'px';
+  const xmap={}; dateKeys.forEach((d,i)=>xmap[d]=LEFT+55+i*COL);
+  monthsEl.innerHTML='';
+  let lastMonth='';
+  for(const [i,d] of dateKeys.entries()){
+    const month=d.slice(0,7);
+    if(month!==lastMonth){
+      const label=document.createElement('div'); label.className='month-label';label.style.left=xmap[d]+'px';label.textContent=d.slice(0,4)+'年'+Number(d.slice(5,7))+'月'; monthsEl.appendChild(label);lastMonth=month;
+    }
+    const tick=document.createElement('div');tick.className='month-line'; tick.style.left=xmap[d]+'px';monthsEl.appendChild(tick);
+  }
+  sectionsEl.innerHTML='';
+  state.lines.sort((a,b)=>lineOrder.indexOf(a.id)-lineOrder.indexOf(b.id));
+  state.lines.forEach(line=>{
+    line.nodes.sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999'));
+    const groups={}; line.nodes.forEach(n=>(groups[n.date] ||= []).push(n));
+    const items=[];
+    Object.entries(groups).forEach(([d,arr])=>arr.forEach(n=>items.push({n,d,x:xmap[d]})));
+    // Greedy lane packing: if two task labels would touch horizontally,
+    // put them on different rows. This keeps the original font size intact.
+    const lastRight=[]; const itemLanes=[]; const CARD=156, SAFE=8;
+    items.forEach(({x})=>{
+      let lane=0; while(lastRight[lane]!==undefined && (x-CARD/2)<lastRight[lane]+SAFE)lane++;
+      lastRight[lane]=x+CARD/2;itemLanes.push(lane);
+    });
+    const count=Math.max(1,lastRight.length);
+    const sec=document.createElement('div');sec.className='section';sec.dataset.line=line.id;
+    sec.style.height=(147+count*70)+'px';
+    sec.innerHTML=`<div class="section-title">${escapeHtml(line.name)}</div><div class="axis"></div>`;
+    sectionsEl.appendChild(sec);
+    Object.entries(groups).forEach(([d,arr])=>{
+      const x=xmap[d], n=arr[0];
+      const circle=document.createElement('div');circle.className='node '+statusClass(arr.some(n=>n.status==='未开始')?'未开始':arr.some(n=>n.status==='进行中')?'进行中':n.status);
+      circle.style.left=(x-18)+'px';circle.style.top='60px';
+      circle.dataset.line=line.id;circle.dataset.id=n.id;
+      circle.title=arr.length>1?`${fmtFull(d)}：${arr.length}项任务（点击查看）`:`${n.id}｜${n.title}`;
+      circle.textContent=fmtDate(d);circle.onclick=()=>{
+ if(associationMode){
+  const keys=arr.map(it=>nodeKey(line.id,it.id)); const all=keys.every(k=>associationSelection.has(k));
+  keys.forEach(k=>all?associationSelection.delete(k):associationSelection.add(k));updateAssociationUI();
+ }else selectNode(line.id,n.id,false)
+ };sec.appendChild(circle);
+    });
+    items.forEach(({n,x},i)=>{
+      const card=document.createElement('div');card.className='task-card timeline-task-card';card.tabIndex=0;
+      card.style.left=(x-CARD/2)+'px';card.style.top=(112+itemLanes[i]*70)+'px';card.style.width=CARD+'px';
+      const name=document.createElement('div');name.className='task-name';name.textContent=n.title;
+      const meta=document.createElement('div');meta.className='task-meta';meta.textContent=n.id+' · '+n.status;
+      card.append(name,meta);card.dataset.line=line.id;card.dataset.id=n.id;card.onclick=()=>{if(card.dataset.justDragged)return;associationMode?associationClick(line.id,n.id):selectNode(line.id,n.id,false)};
+      card.onkeydown=e=>{if(e.key==='Enter'){associationMode?associationClick(line.id,n.id):selectNode(line.id,n.id,false)}};
+      const saved=extras.layouts[nodeKey(line.id,n.id)];if(saved){card.style.left=saved.left+'px';card.style.top=saved.top+'px';card.style.width=saved.width+'px';}
+      for(const corner of ['nw','ne','sw','se']){const handle=document.createElement('span');handle.className='resize-corner '+corner;handle.dataset.corner=corner;card.appendChild(handle)}
+      initCardInteraction(card,line.id,n.id);
+      sec.appendChild(card);
+
+    });
+    const cards=[...sec.querySelectorAll('.timeline-task-card')];
+    const maxBottom=Math.max(0,...cards.map(c=>Number.parseFloat(c.style.top)+Math.max(c.offsetHeight,55)));
+    sec.style.height=Math.max(Number.parseFloat(sec.style.height),maxBottom+64)+'px';
+    const pBox=document.createElement('div');pBox.className='pending-box';
+    const pending=line.pending||[];
+    const pl=document.createElement('span');pl.className='pending-label';pl.textContent='日期待定：';pBox.appendChild(pl);
+    pending.forEach(n=>{const tag=document.createElement('span');tag.className='pending-tag';tag.textContent=n.id+' '+n.title;tag.onclick=()=>selectNode(line.id,n.id,true);pBox.appendChild(tag)});
+    if(!pending.length){const empty=document.createElement('span');empty.className='pending-label';empty.textContent='无';pBox.appendChild(empty)}
+    sec.appendChild(pBox);
+  });
+  renderLeftRail();
+  requestAnimationFrame(updateAssociationUI);
+  crossSvg.style.width=width+'px';
+  requestAnimationFrame(()=>drawCrossLines());
+}
+function drawCrossLines(){
+ crossSvg.innerHTML='';
+ // Geometry is computed from DOM layout coordinates, not scaled viewport coordinates.
+ // Both circles and SVG share the timelineWrap coordinate system.
+ const layer=timelineWrap;
+ crossSvg.setAttribute('width',layer.offsetWidth);
+ crossSvg.setAttribute('height',layer.scrollHeight);
+ const byDate={};
+ document.querySelectorAll('.section .node').forEach(el=>{
+   const found=findItem(el.dataset.line,el.dataset.id);
+   if(found?.item?.date)(byDate[found.item.date] ||= []).push(el);
+ });
+ Object.values(byDate).forEach(els=>{
+   if(new Set(els.map(n=>n.dataset.line)).size<2)return;
+   const pts=els.map(el=>{
+     const section=el.closest('.section');
+     return {x:section.offsetLeft+el.offsetLeft+el.offsetWidth/2,
+             y:sectionsEl.offsetTop+section.offsetTop+el.offsetTop+el.offsetHeight/2};
+   }).sort((a,b)=>a.y-b.y);
+   const link=document.createElementNS('http://www.w3.org/2000/svg','line');
+   link.setAttribute('x1',pts[0].x);link.setAttribute('x2',pts[0].x);
+   link.setAttribute('y1',pts[0].y);link.setAttribute('y2',pts.at(-1).y);
+   link.setAttribute('stroke','#60a5fa');link.setAttribute('stroke-width','2');link.setAttribute('stroke-dasharray','6 7');
+   link.setAttribute('class','cross-relation');
+   crossSvg.appendChild(link);
+   els.forEach(el=>el.classList.add('related-node'));
+   els.forEach(el=>{
+     const sec=el.closest('.section');
+     [...sec.querySelectorAll('.timeline-task-card')].filter(card=>{
+       const found=findItem(sec.dataset.line,el.dataset.id);
+       return found && card.textContent.includes(found.item.id);
+     }).forEach(card=>card.classList.add('related-card'));
+   });
+ });
+ drawExplicitRelations();
+ drawCardConnectors();
+ refreshRelationHighlights();
+}
+
+function drawExplicitRelations(){
+ const all=[...document.querySelectorAll('.section .node, .timeline-task-card')];
+ const point=key=>{const [line,id]=key.split(':');let el=all.find(x=>x.dataset.line===line&&x.dataset.id===id&&x.classList.contains('node'));if(!el)el=all.find(x=>x.dataset.line===line&&x.dataset.id===id);if(!el)return null;const sec=el.closest('.section');return {x:sec.offsetLeft+el.offsetLeft+el.offsetWidth/2,y:sectionsEl.offsetTop+sec.offsetTop+el.offsetTop+el.offsetHeight/2,el};};
+ for(const g of extras.groups){const pts=g.map(point).filter(Boolean).sort((a,b)=>a.y-b.y);if(pts.length<2)continue;
+ for(let i=1;i<pts.length;i++){const path=document.createElementNS('http://www.w3.org/2000/svg','path');const a=pts[i-1],b=pts[i];path.setAttribute('d',`M${a.x},${a.y} L${a.x},${(a.y+b.y)/2} L${b.x},${(a.y+b.y)/2} L${b.x},${b.y}`);path.setAttribute('stroke','#e0a51a');path.setAttribute('stroke-width','2.5');path.setAttribute('fill','none');path.setAttribute('stroke-dasharray','5 5');path.setAttribute('class','cross-relation explicit-edge');crossSvg.appendChild(path);}}
+}
+function drawCardConnectors(){
+ const root=timelineWrap.getBoundingClientRect();
+ const sx=timelineWrap.offsetWidth/root.width || 1;
+ const sy=timelineWrap.offsetHeight/root.height || 1;
+ const toPt=(x,y)=>({x:(x-root.left)*sx,y:(y-root.top)*sy});
+ const groupOf=(line,id)=>extras.groups.some(g=>g.includes(nodeKey(line,id)));
+ document.querySelectorAll('.section').forEach(sec=>{
+   const circles=[...sec.querySelectorAll('.node')];
+   for(const card of sec.querySelectorAll('.timeline-task-card')){
+     const item=findItem(card.dataset.line,card.dataset.id)?.item;
+     if(!item?.date) continue;
+     const circle=circles.find(c=>findItem(c.dataset.line,c.dataset.id)?.item?.date===item.date);
+     if(!circle)continue;
+     const a=circle.getBoundingClientRect(), b=card.getBoundingClientRect();
+     const cx=(a.left+a.right)/2,cy=(a.top+a.bottom)/2;
+     let tx=Math.max(b.left,Math.min(b.right,cx));
+     let ty=Math.max(b.top,Math.min(b.bottom,cy));
+     if(cx>=b.left && cx<=b.right){
+       if(cy<=b.top){ty=b.top;tx=cx}
+       else if(cy>=b.bottom){ty=b.bottom;tx=cx}
+       else{
+         const edges=[{d:cy-b.top,x:cx,y:b.top},{d:b.bottom-cy,x:cx,y:b.bottom},{d:cx-b.left,x:b.left,y:cy},{d:b.right-cx,x:b.right,y:cy}];
+         edges.sort((p,q)=>p.d-q.d);tx=edges[0].x;ty=edges[0].y;
+       }
+     }
+     const dx=tx-cx,dy=ty-cy;
+     const length=Math.hypot(dx,dy)||1;
+     const r=Math.min(a.width,a.height)/2;
+     const p1=toPt(cx+dx/length*r,cy+dy/length*r),p2=toPt(tx,ty);
+     const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+     path.setAttribute('d',`M${p1.x.toFixed(2)},${p1.y.toFixed(2)} L${p2.x.toFixed(2)},${p2.y.toFixed(2)}`);
+     path.setAttribute('class','task-connector');
+     if(groupOf(card.dataset.line,card.dataset.id))path.classList.add('explicit-connector');
+     crossSvg.appendChild(path);
+   }
+ });
+}
+function refreshRelationHighlights(){
+ const linked=new Set(extras.groups.flat());
+ document.querySelectorAll('.explicit-related').forEach(el=>el.classList.remove('explicit-related'));
+ for(const card of document.querySelectorAll('.timeline-task-card')){
+  if(linked.has(nodeKey(card.dataset.line,card.dataset.id)))card.classList.add('explicit-related');
+ }
+ for(const circle of document.querySelectorAll('.section .node')){
+  const sec=circle.closest('.section');
+  const date=findItem(circle.dataset.line,circle.dataset.id)?.item?.date;
+  if(date && [...sec.querySelectorAll('.timeline-task-card')].some(c=>linked.has(nodeKey(c.dataset.line,c.dataset.id)) && findItem(c.dataset.line,c.dataset.id)?.item?.date===date))circle.classList.add('explicit-related');
+ }
+}
+function initCardInteraction(card,line,id){
+ card.addEventListener('pointerdown',e=>{
+ if(associationMode)return;
+ if(e.button!==0)return;
+ const corner=e.target.closest('.resize-corner');const startX=e.clientX,startY=e.clientY;
+ const sec=card.closest('.section'),zoom=Number(document.getElementById('zoomRange').value)/100||1;
+ const orig={left:parseFloat(card.style.left),top:parseFloat(card.style.top),width:card.offsetWidth,height:card.offsetHeight};
+ let moved=false;card.setPointerCapture(e.pointerId);
+ const move=ev=>{const dx=(ev.clientX-startX)/zoom,dy=(ev.clientY-startY)/zoom;if(Math.abs(dx)+Math.abs(dy)>4)moved=true;if(!moved)return;
+ if(corner){let left=orig.left,top=orig.top,w=orig.width,h=orig.height;
+ if(corner.dataset.corner.includes('e'))w=Math.max(110,orig.width+dx);
+ if(corner.dataset.corner.includes('w')){w=Math.max(110,orig.width-dx);left=orig.left+orig.width-w;}
+ if(corner.dataset.corner.includes('s'))h=Math.max(45,orig.height+dy);
+ if(corner.dataset.corner.includes('n')){h=Math.max(45,orig.height-dy);top=orig.top+orig.height-h;}
+ card.style.left=Math.max(0,left)+'px';card.style.top=Math.max(0,top)+'px';card.style.width=w+'px';card.style.minHeight=h+'px';
+ }else{card.style.left=Math.max(0,orig.left+dx)+'px';card.style.top=Math.max(0,orig.top+dy)+'px';}
+ drawCrossLines();};
+ const up=()=>{card.removeEventListener('pointermove',move);card.removeEventListener('pointerup',up);if(moved){extras.layouts[nodeKey(line,id)]={left:parseFloat(card.style.left),top:parseFloat(card.style.top),width:card.offsetWidth};persistExtras();render();card.dataset.justDragged='yes';setTimeout(()=>{delete card.dataset.justDragged},150)};};
+ card.addEventListener('pointermove',move);card.addEventListener('pointerup',up);
+ });
+}
+function renderLeftRail(){
+ let rail=document.getElementById('leftRail');
+ if(!rail){rail=document.createElement('div');rail.id='leftRail';sectionsEl.appendChild(rail)}
+ rail.innerHTML='';
+ let top=0;
+ [...sectionsEl.querySelectorAll('.section')].forEach(sec=>{
+   const row=document.createElement('div');row.className='rail-row';row.style.height=(sec.offsetHeight+16)+'px';
+   const line=state.lines.find(l=>l.id===sec.dataset.line);
+   row.textContent=line.name;
+   row.dataset.line=line.id;
+   row.draggable=true;
+   row.title='按住并上下拖动，调整整条线路的顺序';
+   row.setAttribute('aria-label',line.name+'，拖动可调整线路顺序');
+   row.addEventListener('dragstart',e=>{
+     e.dataTransfer.effectAllowed='move';
+     e.dataTransfer.setData('text/plain',line.id);
+     row.classList.add('line-dragging');
+   });
+   row.addEventListener('dragend',()=>{
+     document.querySelectorAll('.rail-row').forEach(el=>el.classList.remove('line-dragging','line-drop-target'));
+   });
+   row.addEventListener('dragover',e=>{
+     if(!e.dataTransfer.types.includes('text/plain'))return;
+     e.preventDefault();e.dataTransfer.dropEffect='move';
+     document.querySelectorAll('.rail-row').forEach(el=>el.classList.remove('line-drop-target'));
+     row.classList.add('line-drop-target');
+   });
+   row.addEventListener('dragleave',()=>row.classList.remove('line-drop-target'));
+   row.addEventListener('drop',e=>{
+     e.preventDefault();
+     const source=e.dataTransfer.getData('text/plain');
+     const from=lineOrder.indexOf(source),to=lineOrder.indexOf(line.id);
+     if(from<0||to<0||from===to)return;
+     lineOrder.splice(from,1);
+     lineOrder.splice(to,0,source);
+     state.lineOrder=[...lineOrder];
+     saveState();render();
+   });
+   rail.appendChild(row);top+=sec.offsetHeight+16;
+ });
+ rail.style.height=top+'px';
+ const handle=document.createElement('div');handle.id='leftResize';rail.appendChild(handle);
+ handle.addEventListener('pointerdown',e=>{
+   e.preventDefault();handle.setPointerCapture(e.pointerId);handle.classList.add('dragging');
+   const sx=e.clientX, initial=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--left-size'))||255;
+   const move=ev=>{
+     const target=Math.max(130,Math.min(410,initial+(ev.clientX-sx)/(currentZoom||1)));
+     document.documentElement.style.setProperty('--left-size',target+'px');
+     document.getElementById('railWidthValue')?.remove();
+     rail.style.width=target+"px";
+   };
+   const up=()=>{render();handle.classList.remove('dragging');handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',up)};
+   handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',up);
+ });
+}
+function findItem(lineId,id){
+  const line = state.lines.find(l=>l.id===lineId); if(!line) return null;
+  const node = line.nodes.find(n=>n.id===id); if(node) return {type:'node', line, item:node};
+  const p = (line.pending||[]).find(n=>n.id===id); if(p) return {type:'pending', line, item:p};
+  return null;
+}
+function selectNode(lineId,id,isPending){
+  const found = findItem(lineId,id); if(!found) return;
+  selected = {lineId,id,type:found.type};
+  emptyState.style.display='none'; editor.style.display='block';
+  document.getElementById('f_id').value = found.item.id || '';
+  document.getElementById('f_line').value = found.line.id;
+  document.getElementById('f_title').value = found.item.title || '';
+  document.getElementById('f_date').value = found.type==='node' ? (found.item.date || '') : '';
+  document.getElementById('f_status').value = found.item.status || '未开始';
+  document.getElementById('f_place').value = found.item.placement || 'above';
+  document.getElementById('f_note').value = found.item.note || '';
+  document.getElementById('f_note_short').value = found.item.note_short || '';
+}
+function clearSelection(){ selected=null; editor.style.display='none'; emptyState.style.display='block'; }
+function saveCurrent(){
+  if(!selected) return;
+  const cur = findItem(selected.lineId, selected.id); if(!cur) return;
+  const newLineId = document.getElementById('f_line').value;
+  const targetLine = state.lines.find(l=>l.id===newLineId);
+  const updated = {
+    id: document.getElementById('f_id').value.trim(),
+    title: document.getElementById('f_title').value.trim(),
+    date: document.getElementById('f_date').value || null,
+    status: document.getElementById('f_status').value,
+    placement: document.getElementById('f_place').value,
+    note: document.getElementById('f_note').value.trim(),
+    note_short: document.getElementById('f_note_short').value.trim(),
+  };
+  // remove old
+  if(cur.type==='node') cur.line.nodes = cur.line.nodes.filter(n=>n.id!==cur.item.id); else cur.line.pending = cur.line.pending.filter(n=>n.id!==cur.item.id);
+  const saveAsNode = !!updated.date;
+  if(saveAsNode) targetLine.nodes.push(updated); else { delete updated.date; (targetLine.pending ||= []).push(updated); }
+  selected = {lineId:newLineId, id:updated.id, type: saveAsNode?'node':'pending'};
+  saveState(); render(); selectNode(selected.lineId, selected.id, selected.type==='pending');
+}
+function duplicateCurrent(){
+  if(!selected) return;
+  const cur = findItem(selected.lineId, selected.id); if(!cur) return;
+  const copy = JSON.parse(JSON.stringify(cur.item));
+  copy.id = copy.id + '_copy';
+  copy.title = copy.title + '（副本）';
+  if(cur.type==='node') cur.line.nodes.push(copy); else cur.line.pending.push(copy);
+  saveState(); render(); selectNode(cur.line.id, copy.id, cur.type==='pending');
+}
+function deleteCurrent(){
+  if(!selected) return;
+  const cur = findItem(selected.lineId, selected.id); if(!cur) return;
+  if(!confirm(`确认删除 ${cur.item.id} 吗？`)) return;
+  if(cur.type==='node') cur.line.nodes = cur.line.nodes.filter(n=>n.id!==cur.item.id); else cur.line.pending = cur.line.pending.filter(n=>n.id!==cur.item.id);
+  saveState(); render(); clearSelection();
+}
+function addNode(){
+  clearSelection();
+  emptyState.style.display='none'; editor.style.display='block';
+  document.getElementById('f_id').value = 'NEW' + Math.floor(Math.random()*1000);
+  document.getElementById('f_line').value = 'A';
+  document.getElementById('f_title').value = '';
+  document.getElementById('f_date').value = '';
+  document.getElementById('f_status').value = '未开始';
+  document.getElementById('f_place').value = 'above';
+  document.getElementById('f_note').value = '';
+  document.getElementById('f_note_short').value = '';
+  selected = {lineId:'A', id:null, type:'new'};
+}
+function saveNew(){
+  const lineId = document.getElementById('f_line').value;
+  const targetLine = state.lines.find(l=>l.id===lineId);
+  const updated = {
+    id: document.getElementById('f_id').value.trim() || ('NEW'+Date.now()),
+    title: document.getElementById('f_title').value.trim() || '未命名节点',
+    date: document.getElementById('f_date').value || null,
+    status: document.getElementById('f_status').value,
+    placement: document.getElementById('f_place').value,
+    note: document.getElementById('f_note').value.trim(),
+    note_short: document.getElementById('f_note_short').value.trim(),
+  };
+  if(updated.date) targetLine.nodes.push(updated); else { delete updated.date; (targetLine.pending ||= []).push(updated); }
+  selected = {lineId, id:updated.id, type: updated.date?'node':'pending'};
+  saveState(); render(); selectNode(selected.lineId, selected.id, selected.type==='pending');
+}
+function exportJson(){
+  const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '欧晟项目五线简约时间轴_数据.json'; a.click();
+}
+function importJson(file){
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{ const data = JSON.parse(reader.result); if(!data.lines) throw new Error('bad'); state=data; saveState(); render(); clearSelection(); alert('导入成功'); }
+    catch(e){ alert('导入失败：文件格式不正确'); }
+  };
+  reader.readAsText(file,'utf-8');
+}
+function initEditorLines(){
+  const sel = document.getElementById('f_line');
+  sel.innerHTML = state.lines.map(l=>`<option value="${l.id}">${l.id}线</option>`).join('');
+}
+let arhkResizeTimer;window.addEventListener('resize',()=>{clearTimeout(arhkResizeTimer);arhkResizeTimer=setTimeout(render,180)},{passive:true});
+document.getElementById('saveBtn').onclick = ()=>{ if(selected?.type==='new') saveNew(); else saveCurrent(); };
+document.getElementById('duplicateBtn').onclick = duplicateCurrent;
+document.getElementById('deleteBtn').onclick = deleteCurrent;
+document.getElementById('cancelBtn').onclick = clearSelection;
+document.getElementById('addNodeBtn').onclick = addNode;
+document.getElementById('resetBtn').onclick = ()=>{ if(confirm('确认恢复为默认数据？当前浏览器内的修改将丢失。')){ state = structuredClone({lines: DEFAULT_DATA}); saveState(); render(); clearSelection(); initEditorLines(); }};
+document.getElementById('exportBtn').onclick = exportJson;
+document.getElementById('importFile').addEventListener('change', (e)=>{ const f=e.target.files[0]; if(f) importJson(f); e.target.value='';});
+document.getElementById('relateModeBtn').onclick=startAssociation;
+document.getElementById('relationConfirm').onclick=saveRelation;
+document.getElementById('relationRemove').onclick=removeRelation;
+document.getElementById('relationCancel').onclick=stopAssociation;
+document.getElementById('relationBackTop').onclick=stopAssociation;
+initEditorLines(); render();
+
+let currentZoom=1;
+function applyZoom(){
+ currentZoom=Number(document.getElementById('zoomRange').value)/100;
+ timelineWrap.style.zoom=currentZoom;
+ document.getElementById('zoomValue').textContent=Math.round(currentZoom*100)+'%';
+ requestAnimationFrame(drawCrossLines);
+}
+document.getElementById('spacingRange').addEventListener('input',e=>{
+ document.getElementById('spacingValue').textContent=e.target.value;
+ render();
+});
+document.getElementById('zoomRange').addEventListener('input',applyZoom);
+document.getElementById('fitBtn').onclick=()=>{
+ document.getElementById('spacingRange').value=72;
+ document.getElementById('spacingValue').textContent='72';
+ render();
+ const available=document.querySelector('.board').clientWidth-20;
+ const zoom=Math.min(1,available/timelineWrap.offsetWidth);
+ document.getElementById('zoomRange').value=Math.max(60,Math.round(zoom*100/10)*10);
+ applyZoom();
+};
+function xmlEsc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));}
+function wrapSvgText(text,maxChars=16){
+ const out=[];let str=String(text||'');while(str.length){out.push(str.slice(0,maxChars));str=str.slice(maxChars);}return out.length?out:[''];
+}
+function buildExportSvg(){
+ const exportFont=Number(document.getElementById("fontRange").value)||12;const viewW=timelineWrap.offsetWidth;const sections=[...document.querySelectorAll('.section')];
+ const totalH=80+sections.reduce((a,s)=>a+s.offsetHeight+16,0)+30;
+ const arr=[`<svg xmlns="http://www.w3.org/2000/svg" width="${viewW}" height="${totalH}" viewBox="0 0 ${viewW} ${totalH}">`,
+ `<rect width="100%" height="100%" fill="#fff"/>`,
+ `<text x="24" y="32" font-size="20" font-weight="700" fill="#111827">欧晟项目五线时间节点图</text>`];
+ const dates=[...new Set(getDatedNodes().map(x=>x.node.date))].sort();const left=Number(document.documentElement.style.getPropertyValue("--left-size").replace("px", ""))||255,col=Number(document.getElementById('spacingRange').value);const xs={};dates.forEach((d,i)=>xs[d]=left+55+i*col);
+ let y=65;
+ for(const sec of sections){
+ const id=sec.dataset.line, data=state.lines.find(l=>l.id===id),height=sec.offsetHeight;
+ arr.push(`<text x="22" y="${y+26}" font-size="18" font-weight="700" fill="#111827">${xmlEsc(data.name)}</text>`);
+ arr.push(`<line x1="255" y1="${y+82}" x2="${viewW-25}" y2="${y+82}" stroke="#d1d5db" stroke-width="8" stroke-linecap="round"/>`);
+ const cards=[...sec.querySelectorAll('.timeline-task-card')];
+ for(const node of [...sec.querySelectorAll('.node')]){
+ const f=findItem(id,node.dataset.id), n=f?.item;if(!n)continue;
+ const x=xs[n.date];const color=n.status==='已完成'?'#27AE60':n.status==='进行中'?'#2F80ED':n.status==='待确认'?'#e0a800':'#7f8a98';
+ arr.push(`<circle cx="${x}" cy="${y+78}" r="18" fill="${color}" stroke="#fff" stroke-width="3"/>`);
+ arr.push(`<text x="${x}" y="${y+81}" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">${xmlEsc(fmtDate(n.date))}</text>`);
+ }
+ for(const card of cards){
+ const cx=Number.parseFloat(card.style.left),cy=Number.parseFloat(card.style.top),w=156;
+ const title=card.querySelector('.task-name').textContent;
+ const meta=card.querySelector('.task-meta').textContent;
+ const lines=wrapSvgText(title,14);
+ const cardH=Math.max(50,10+lines.length*17+17);
+ arr.push(`<line x1="${cx+w/2}" y1="${y+96}" x2="${cx+w/2}" y2="${y+cy}" stroke="#93c5fd" stroke-width="1.5" stroke-dasharray="4 4"/>`);
+ arr.push(`<rect x="${cx}" y="${y+cy}" width="${w}" height="${cardH}" rx="7" fill="#fff" stroke="#dce3ec"/>`);
+ lines.forEach((line,i)=>arr.push(`<text x="${cx+8}" y="${y+cy+17+i*17}" font-size="${exportFont+4}" font-weight="600" fill="#111827">${xmlEsc(line)}</text>`));
+ arr.push(`<text x="${cx+8}" y="${y+cy+17+lines.length*17}" font-size="${exportFont+2}" fill="#6b7280">${xmlEsc(meta)}</text>`);
+ }
+ const pending=data.pending||[];
+ if(pending.length){arr.push(`<text x="255" y="${y+height-14}" font-size="11" fill="#946200">日期待定：${xmlEsc(pending.map(p=>p.id+' '+p.title).join('  ｜  '))}</text>`)}
+ y+=height+16;
+ }
+ // Same-date connections. Date represents matching scheduled completion, not causal dependence.
+ for(const date of dates){const idx=state.lines.map((l,i)=>l.nodes.some(n=>n.date===date)?i:-1).filter(i=>i>=0);if(idx.length<2)continue;
+ let curr=65;const ys=[];for(let i=0;i<sections.length;i++){ys[i]=curr+78;curr+=sections[i].offsetHeight+16;}
+ arr.push(`<line x1="${xs[date]}" y1="${ys[idx[0]]}" x2="${xs[date]}" y2="${ys[idx[idx.length-1]]}" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="6 6" opacity=".75"/>`);
+ }
+ arr.push('</svg>');return {svg:arr.join(''),w:viewW,h:totalH};
+}
+function saveBlob(blob,name){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);}
+async function exportPng(){
+ try{
+ const {svg,w,h}=buildExportSvg(); const blob=new Blob([svg],{type:'image/svg+xml;charset=utf-8'});
+ const url=URL.createObjectURL(blob),img=new Image();
+ await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject;img.src=url;});
+ const canvas=document.createElement('canvas');const factor=Math.min(2,16000/Math.max(w,h));canvas.width=Math.ceil(w*factor);canvas.height=Math.ceil(h*factor);
+ const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.scale(factor,factor);ctx.drawImage(img,0,0);URL.revokeObjectURL(url);
+ canvas.toBlob(b=>b?saveBlob(b,'欧晟项目五线时间轴.png'):alert('PNG生成失败'),'image/png');
+ }catch(e){alert('PNG导出失败：'+e.message)}
+}
+function exportPdf(){
+ // The print document snapshots the ACTUAL rendered timeline, including current
+ // card coordinates, custom sizes, fonts, node highlights and SVG connection paths.
+ // No reconstruction: the printed state comes directly from this DOM.
+ const board = document.getElementById('timelineWrap');
+ const clone = board.cloneNode(true);
+ // Serialize SVG DOM as markup and preserve selected/highlight classes on body.
+ const allStyles=[...document.querySelectorAll('style')].map(el=>el.textContent).join('\n');
+ const printWindow=window.open('','_blank');
+ if(!printWindow){ alert('请允许弹出窗口，以便导出当前页面为PDF。'); return; }
+ const printCss=`
+ @page{size:A2 landscape;margin:10mm}
+ html,body{margin:0!important;padding:0!important;background:white!important;color:#242424!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+ body{overflow:visible!important;min-width:0!important}
+ .timeline-wrap{position:relative!important;display:block!important;transform:none!important;overflow:visible!important;margin:0!important;max-width:none!important;}
+ .timeline-wrap *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+ .cross-svg{overflow:visible!important;}
+ .toolbar,.side,.app,.board{position:static!important}
+ `;
+ printWindow.document.open();
+ printWindow.document.write('<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>ARHK Timeline · 当前视图 PDF</title><style>'+allStyles+'\n'+printCss+'</style></head><body class="'+document.body.className.replace(/"/g,'')+'">'+clone.outerHTML+'</body></html>');
+ printWindow.document.close();
+ const run=()=>{ printWindow.focus();setTimeout(()=>printWindow.print(),450); };
+ if(printWindow.document.readyState==='complete') run();else printWindow.addEventListener('load',run,{once:true});
+}
+document.getElementById('pngBtn').onclick=exportPng;
+document.getElementById('pdfBtn').onclick=exportPdf;
+
+
+let highlighted=false;
+const fontSlider=document.getElementById('fontRange');
+fontSlider.addEventListener('input',()=>{
+ document.documentElement.style.setProperty('--ui-font',fontSlider.value+'px');
+ document.getElementById('fontValue').textContent=fontSlider.value+'px';
+ render();requestAnimationFrame(drawCrossLines);
+});
+function toggleSidebar(force){
+ const next=typeof force==='boolean'?force:!document.body.classList.contains('editor-collapsed');
+ document.body.classList.toggle('editor-collapsed',next);
+ const b=document.getElementById('edgeToggle');b.textContent=next?'▶':'◀';b.setAttribute('aria-label',next?'展开编辑栏':'收起编辑栏');
+ requestAnimationFrame(()=>{render();requestAnimationFrame(drawCrossLines)});
+}
+document.getElementById('edgeToggle').onclick=()=>toggleSidebar();
+document.getElementById('highlightBtn').onclick=()=>{
+ highlighted=!highlighted;
+ document.body.classList.toggle('highlighted',highlighted);
+ requestAnimationFrame(drawCrossLines);
+ document.getElementById('highlightBtn').textContent=highlighted?'关闭关联高亮':'高亮所有关联节点';
+};
+// Graph reconstruction after resizing ensures connectors stay anchored exactly.
+const graphResizeObserver=new ResizeObserver(()=>requestAnimationFrame(()=>requestAnimationFrame(drawCrossLines)));
+graphResizeObserver.observe(document.querySelector('.board'));
+graphResizeObserver.observe(timelineWrap);
+
+</script>
+
+<script>
+/* V9 single source of truth: toolbar height drives both canvas and editor offsets. */
+(function(){
+ const bar=document.getElementById('mainToolbar');
+ if(!bar)return;
+ let previous=0;
+ function sync(){
+   const h=Math.ceil(bar.getBoundingClientRect().height);
+   if(h!==previous){previous=h;document.documentElement.style.setProperty('--topbar-h',h+'px');
+      requestAnimationFrame(()=>{if(typeof drawCrossLines==='function')drawCrossLines();});
+   }
+ }
+ const observer=new ResizeObserver(()=>requestAnimationFrame(sync));
+ observer.observe(bar);window.addEventListener('resize',()=>requestAnimationFrame(sync),{passive:true});
+ requestAnimationFrame(sync);
+})();
+</script>
+<style id="v11-attachment-fixes">
+#edgeToggle{position:fixed!important;left:auto!important;right:342px!important;top:calc(var(--topbar-h) + 56px)!important;transform:none!important;display:flex!important;align-items:center!important;justify-content:center!important;width:30px!important;height:58px!important;border-radius:12px 0 0 12px!important;border:1px solid #d6d7db!important;color:#292b30!important;background:#fff!important;box-shadow:-3px 1px 12px rgba(28,32,44,.14)!important;z-index:10030!important;opacity:1!important;visibility:visible!important;cursor:pointer}
+body.editor-collapsed #edgeToggle{left:auto!important;right:12px!important;top:calc(var(--topbar-h) + 56px)!important;border-radius:12px!important}
+@media(max-width:850px){#edgeToggle{right:min(340px,calc(100vw - 20px))!important}body.editor-collapsed #edgeToggle{right:12px!important}}
+#crossSvg{z-index:7!important;pointer-events:none!important}
+.section .node,.section .timeline-task-card{z-index:8!important;position:absolute}
+</style>
+<script>
+(function(){
+ const toggle=document.getElementById('edgeToggle');
+ if(toggle && toggle.parentElement!==document.body)document.body.appendChild(toggle);
+ if(document.fonts?.ready)document.fonts.ready.then(()=>requestAnimationFrame(drawCrossLines));
+})();
+</script>
+</body>
+</html>
