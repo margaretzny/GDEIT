@@ -359,6 +359,13 @@ body .side .tip,body .side .field label,body .side .relation-panel p,body .side 
 body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e1;border-radius:10px;padding:6px 8px;background:#fff;color:#1f2937;font:inherit;line-height:1.35;outline:2px solid #bfdbfe}
 @media(max-width:850px){body .toolbar-primary{grid-template-columns:repeat(3,minmax(0,1fr));overflow:visible!important}.toolbar-menu{position:fixed;top:calc(var(--topbar-h) - 2px);left:10px;right:10px;width:auto}.node-tabs{margin-left:-12px;margin-right:-12px;padding-left:12px;padding-right:12px}}
 
+/* Extra affordances for Codex v3.5 sidebar ordering — no changes to timeline/task styles. */
+.rail-row.arhk-sortable-line{display:flex;align-items:flex-start;gap:8px;cursor:grab;touch-action:pan-x;user-select:none}
+.rail-row.arhk-sortable-line.rail-dragging{background:#edf4ff;cursor:grabbing}
+.rail-row.arhk-sortable-line.rail-drop-target{box-shadow:inset 0 3px #80aef9;background:#f2f7ff}
+.rail-line-name{flex:1;min-width:0;white-space:normal;overflow-wrap:anywhere}
+.rail-edit-name{flex:0 0 30px;min-width:30px;height:30px;border:0;border-radius:8px;background:#f1f3f5;color:#555;cursor:pointer;font-size:16px}
+.rail-edit-name:hover{background:#e5ecf6;color:#1d4ed8}
 </style>
 </head>
 <body>
@@ -516,7 +523,20 @@ function removeRelation(){
  persistExtras();stopAssociation();
 }
 // Display order follows the requested business sequence while preserving each line's original ID and name.
-const lineOrder = ['A','C','D','B','E'];
+const lineOrder = (()=>{ const fallback=['A','C','D','B','E']; const saved=extras.lineOrder; return Array.isArray(saved)&&saved.length===5&&new Set(saved).size===5&&fallback.every(id=>saved.includes(id))?[...saved]:fallback; })();
+function visibleLineTitle(line){
+  const index=lineOrder.indexOf(line.id);
+  const letter='ABCDE'[Math.max(0,index)];
+  const title=String(line.name||'').replace(/^[A-E]\\s*线\\s*[｜|:：—-]?\\s*/u,'').trim();
+  return letter+'线｜'+title;
+}
+function saveLineOrder(newOrder){
+ if(new Set(newOrder).size!==5)return;
+ lineOrder.splice(0,lineOrder.length,...newOrder);
+ extras.lineOrder=[...newOrder];
+ persistExtras();
+ render();
+}
 const lineColors = Object.fromEntries(state.lines.map(l => [l.id, l.color]));
 const sectionsEl = document.getElementById('sections');
 const monthsEl = document.getElementById('months');
@@ -580,7 +600,6 @@ function renderMonths(range, left, width){
 function shortMeta(n){ return n.note_short || fmtFull(n.date); }
 function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function render(){
-  finishLineTitleEdit();
   const dateKeys=[...new Set(getDatedNodes().map(x=>x.node.date))].sort();
   const LEFT=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--left-size'))||255;
   const nodeFont=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--node-font'))||14;
@@ -603,7 +622,7 @@ function render(){
   sectionsEl.replaceChildren();
   for(const line of [...state.lines].sort((a,b)=>lineOrder.indexOf(a.id)-lineOrder.indexOf(b.id))){
     const sec=document.createElement('div');sec.className='section';sec.dataset.line=line.id;
-    sec.innerHTML=`<div class="section-title">${escapeHtml(line.name)}</div><div class="axis"></div>`;
+    sec.innerHTML=`<div class="section-title">${escapeHtml(visibleLineTitle(line))}</div><div class="axis"></div>`;
     sectionsEl.appendChild(sec);
     const groups={};
     [...line.nodes].sort((a,b)=>(a.date||'').localeCompare(b.date||'')).forEach(n=>(groups[n.date] ||= []).push(n));
@@ -807,30 +826,71 @@ function initCardInteraction(card,line,id){
 function renderLeftRail(){
  let rail=document.getElementById('leftRail');
  if(!rail){rail=document.createElement('div');rail.id='leftRail';sectionsEl.appendChild(rail)}
- const oldRows=[...rail.querySelectorAll('.rail-row')];
- if(oldRows.length===state.lines.length){
-   let height=0;[...sectionsEl.querySelectorAll('.section')].forEach((sec,i)=>{oldRows[i].style.height=(sec.offsetHeight+16)+'px';height+=sec.offsetHeight+16;});rail.style.height=height+'px';return;
- }
- rail.innerHTML='';
- let top=0;
- [...sectionsEl.querySelectorAll('.section')].forEach(sec=>{
-   const row=document.createElement('div');row.className='rail-row';row.style.height=(sec.offsetHeight+16)+'px';
+ // Rebuild every time: drag order and edited labels must both refresh.
+ rail.replaceChildren();
+ let total=0;
+ for(const sec of sectionsEl.querySelectorAll('.section')){
    const line=state.lines.find(l=>l.id===sec.dataset.line);
-   row.textContent=line.name;
-   row.title='双击编辑线路名称';
-   row.addEventListener('dblclick',()=>beginLineTitleEdit(line,row));
-   rail.appendChild(row);top+=sec.offsetHeight+16;
- });
- rail.style.height=top+'px';
+   if(!line)continue;
+   const row=document.createElement('div');
+   row.className='rail-row arhk-sortable-line';
+   row.dataset.line=line.id;
+   row.style.height=(sec.offsetHeight+16)+'px';
+   total+=sec.offsetHeight+16;
+   const text=document.createElement('span');
+   text.className='rail-line-name';
+   text.textContent=visibleLineTitle(line);
+   text.title='双击修改名称；按住拖动调整顺序';
+   row.appendChild(text);
+   const pencil=document.createElement('button');
+   pencil.type='button';pencil.className='rail-edit-name';
+   pencil.textContent='✎';pencil.title='修改线路名称';
+   pencil.setAttribute('aria-label','修改'+visibleLineTitle(line));
+   pencil.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();beginLineTitleEdit(line,row);});
+   row.appendChild(pencil);
+   row.addEventListener('dblclick',e=>{if(e.target.closest('button,input'))return;beginLineTitleEdit(line,row);});
+   let startY=0,dragging=false;
+   row.addEventListener('pointerdown',e=>{
+     if(e.button!==0||e.target.closest('button,input'))return;
+     startY=e.clientY;dragging=false;
+     row.setPointerCapture(e.pointerId);
+   });
+   row.addEventListener('pointermove',e=>{
+     if(!row.hasPointerCapture(e.pointerId))return;
+     if(Math.abs(e.clientY-startY)>7)dragging=true;
+     if(dragging){
+       row.classList.add('rail-dragging');
+       const items=[...rail.querySelectorAll('.arhk-sortable-line')];
+       items.forEach(r=>r.classList.remove('rail-drop-target'));
+       const target=items.find(r=>{const b=r.getBoundingClientRect();return e.clientY>=b.top&&e.clientY<=b.bottom;});
+       if(target&&target!==row)target.classList.add('rail-drop-target');
+     }
+   });
+   row.addEventListener('pointerup',e=>{
+     if(!row.hasPointerCapture(e.pointerId))return;
+     const wasDragging=dragging;
+     row.releasePointerCapture(e.pointerId);
+     row.classList.remove('rail-dragging');
+     const items=[...rail.querySelectorAll('.arhk-sortable-line')];
+     const target=items.find(r=>{const b=r.getBoundingClientRect();return e.clientY>=b.top&&e.clientY<=b.bottom;});
+     items.forEach(r=>r.classList.remove('rail-drop-target'));
+     if(wasDragging&&target&&target!==row){
+       const next=[...lineOrder],from=next.indexOf(line.id),to=next.indexOf(target.dataset.line);
+       if(from>=0&&to>=0){next.splice(from,1);next.splice(to,0,line.id);saveLineOrder(next);}
+     }
+     dragging=false;
+   });
+   row.addEventListener('pointercancel',()=>{dragging=false;row.classList.remove('rail-dragging');rail.querySelectorAll('.rail-drop-target').forEach(r=>r.classList.remove('rail-drop-target'));});
+   rail.appendChild(row);
+ }
+ rail.style.height=total+'px';
  const handle=document.createElement('div');handle.id='leftResize';rail.appendChild(handle);
  handle.addEventListener('pointerdown',e=>{
    e.preventDefault();handle.setPointerCapture(e.pointerId);handle.classList.add('dragging');
-   const sx=e.clientX, initial=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--left-size'))||255;
+   const sx=e.clientX,initial=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--left-size'))||255;
    const move=ev=>{
      const target=Math.max(130,Math.min(410,initial+(ev.clientX-sx)/(currentZoom||1)));
-     document.documentElement.style.setProperty('--left-size',target+'px');
-     document.getElementById('railWidthValue')?.remove();
-     rail.style.width=target+"px";
+     document.documentElement.style.setProperty('--left-size',target+'px');rail.style.width=target+'px';
    };
    const up=()=>{saveView();render();handle.classList.remove('dragging');handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',up)};
    handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',up);
@@ -838,22 +898,31 @@ function renderLeftRail(){
 }
 function beginLineTitleEdit(line,row){
  finishLineTitleEdit();
- const input=document.createElement('input');input.className='line-title-editor';input.type='text';input.value=line.name;input.setAttribute('aria-label','线路名称');
- row.replaceChildren(input);activeLineTitleEdit={line,row,input};input.focus();input.select();
+ const input=document.createElement('input');
+ input.className='line-title-editor';input.type='text';
+ input.value=String(line.name||'').replace(/^[A-E]\\s*线\\s*[｜|:：—-]?\\s*/u,'').trim();
+ input.setAttribute('aria-label','线路名称');
+ row.replaceChildren(input);
+ activeLineTitleEdit={line,row,input};
+ input.focus();input.select();
  input.addEventListener('keydown',event=>{
-   if(event.key==='Enter'){event.preventDefault();finishLineTitleEdit();}
+   if(event.key==='Enter'){event.preventDefault();finishLineTitleEdit(true);}
    if(event.key==='Escape'){event.preventDefault();finishLineTitleEdit(false);}
  });
 }
 function finishLineTitleEdit(commit=true){
  if(!activeLineTitleEdit)return;
  const {line,row,input}=activeLineTitleEdit;
- if(commit){const value=input.value.trim();if(value)line.name=value;}
- row.textContent=line.name;row.title='双击编辑线路名称';
- activeLineTitleEdit=null;saveState();
+ activeLineTitleEdit=null;
+ if(commit){
+   const value=input.value.trim().replace(/^[A-E]\\s*线\\s*[｜|:：—-]?\\s*/u,'').trim();
+   if(value){line.name=value;saveState();}
+ }
+ // Render consistently updates rail and labels, including on cancel.
+ render();
 }
 document.addEventListener('pointerdown',event=>{
- if(activeLineTitleEdit&&!activeLineTitleEdit.row.contains(event.target))finishLineTitleEdit();
+ if(activeLineTitleEdit&&!activeLineTitleEdit.row.contains(event.target))finishLineTitleEdit(true);
 });
 function findItem(lineId,id){
   const line = state.lines.find(l=>l.id===lineId); if(!line) return null;
