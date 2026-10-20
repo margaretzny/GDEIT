@@ -302,6 +302,11 @@ body.highlighted .cross-relation,body.highlighted .explicit-connector {stroke:#d
 .rail-row.line-dragging{opacity:.4;background:#f2f4f7}
 .rail-row.line-drop-target{background:#f0f5ff;outline:2px solid #a1b9e6;outline-offset:-2px}
 </style>
+<style id="v13-rail-rename">
+.rail-row{position:relative;padding-right:36px!important}
+.rail-rename-button{position:absolute;right:9px;top:13px;width:25px;height:25px;border:0;border-radius:7px;background:#f0f1f3;color:#667085;cursor:pointer;opacity:.5;font-size:16px;line-height:25px;text-align:center;z-index:15;touch-action:manipulation}
+.rail-row:hover .rail-rename-button,.rail-rename-button:focus-visible{opacity:1;background:#e6e8ee;color:#202631}
+</style>
 </head>
 <body>
 <div class="app">
@@ -693,7 +698,27 @@ function renderLeftRail(){
    row.textContent=line.name;
    row.dataset.line=line.id;
    row.draggable=true;
-   row.title='按住并上下拖动，调整整条线路的顺序';
+   row.title='拖动调整顺序；双击或点击铅笔修改线路名称';
+   row.addEventListener('dblclick',e=>{
+     e.preventDefault(); e.stopPropagation();
+     renameLine();
+   });
+   function renameLine(){
+     const next=window.prompt('修改'+line.id+'线名称：',line.name);
+     if(next===null)return;
+     const clean=next.trim();
+     if(!clean){window.alert('线路名称不能为空');return}
+     line.name=clean;
+     saveState();render();
+   }
+   const pencil=document.createElement('button');
+   pencil.type='button';pencil.className='rail-rename-button';
+   pencil.textContent='✎';pencil.title='修改线路名称';
+   pencil.draggable=false;
+   pencil.addEventListener('mousedown',e=>e.stopPropagation());
+   pencil.addEventListener('pointerdown',e=>e.stopPropagation());
+   pencil.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();renameLine()});
+   row.appendChild(pencil);
    row.setAttribute('aria-label',line.name+'，拖动可调整线路顺序');
    row.addEventListener('dragstart',e=>{
      e.dataTransfer.effectAllowed='move';
