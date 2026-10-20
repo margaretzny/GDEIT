@@ -527,7 +527,7 @@ const lineOrder = (()=>{ const fallback=['A','C','D','B','E']; const saved=extra
 function visibleLineTitle(line){
   const index=lineOrder.indexOf(line.id);
   const letter='ABCDE'[Math.max(0,index)];
-  const title=String(line.name||'').replace(/^[A-E]\\s*线\\s*[｜|:：—-]?\\s*/u,'').trim();
+  const title=String(line.name||'').replace(/^[A-E]\s*线\s*[｜|:：—-]?\s*/u,'').trim();
   return letter+'线｜'+title;
 }
 function saveLineOrder(newOrder){
@@ -900,7 +900,7 @@ function beginLineTitleEdit(line,row){
  finishLineTitleEdit();
  const input=document.createElement('input');
  input.className='line-title-editor';input.type='text';
- input.value=String(line.name||'').replace(/^[A-E]\\s*线\\s*[｜|:：—-]?\\s*/u,'').trim();
+ input.value=String(line.name||'').replace(/^[A-E]\s*线\s*[｜|:：—-]?\s*/u,'').trim();
  input.setAttribute('aria-label','线路名称');
  row.replaceChildren(input);
  activeLineTitleEdit={line,row,input};
@@ -915,7 +915,7 @@ function finishLineTitleEdit(commit=true){
  const {line,row,input}=activeLineTitleEdit;
  activeLineTitleEdit=null;
  if(commit){
-   const value=input.value.trim().replace(/^[A-E]\\s*线\\s*[｜|:：—-]?\\s*/u,'').trim();
+   const value=input.value.trim().replace(/^[A-E]\s*线\s*[｜|:：—-]?\s*/u,'').trim();
    if(value){line.name=value;saveState();}
  }
  // Render consistently updates rail and labels, including on cancel.
