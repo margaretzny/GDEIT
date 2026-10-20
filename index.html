@@ -496,6 +496,22 @@ function renderMonths(range, left, width){
 }
 function shortMeta(n){ return n.note_short || fmtFull(n.date); }
 function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function lineCaption(line){
+  const pos=lineOrder.indexOf(line.id);
+  const letter='ABCDE'[pos>=0?pos:0];
+  const raw=String(line.customTitle || line.name || '').trim();
+  const clean=raw.replace(/^[A-E]\s*线\s*[｜|:：-]?\s*/u,'').trim();
+  return letter+'线｜'+clean;
+}
+function renamePersistedLine(line,newValue){
+  const cleaned=String(newValue||'').replace(/^[A-E]\s*线\s*[｜|:：-]?\s*/u,'').trim();
+  if(!cleaned)return false;
+  line.customTitle=cleaned;
+  line.name=cleaned; // legacy rendering and JSON export compatibility
+  saveState();
+  render();
+  return true;
+}
 function render(){
   // Equal-size date columns prevent collisions; shared calendar dates always use one x coordinate.
   const dateKeys=[...new Set(getDatedNodes().map(x=>x.node.date))].sort();
@@ -529,7 +545,7 @@ function render(){
     const count=Math.max(1,lastRight.length);
     const sec=document.createElement('div');sec.className='section';sec.dataset.line=line.id;
     sec.style.height=(147+count*70)+'px';
-    sec.innerHTML=`<div class="section-title">${escapeHtml(line.name)}</div><div class="axis"></div>`;
+    sec.innerHTML=`<div class="section-title">${escapeHtml(lineCaption(line))}</div><div class="axis"></div>`;
     sectionsEl.appendChild(sec);
     Object.entries(groups).forEach(([d,arr])=>{
       const x=xmap[d], n=arr[0];
@@ -695,7 +711,7 @@ function renderLeftRail(){
  [...sectionsEl.querySelectorAll('.section')].forEach(sec=>{
    const row=document.createElement('div');row.className='rail-row';row.style.height=(sec.offsetHeight+16)+'px';
    const line=state.lines.find(l=>l.id===sec.dataset.line);
-   row.textContent=line.name;
+   row.textContent=lineCaption(line);
    row.dataset.line=line.id;
    row.draggable=true;
    row.title='拖动调整顺序；双击或点击铅笔修改线路名称';
@@ -704,12 +720,11 @@ function renderLeftRail(){
      renameLine();
    });
    function renameLine(){
-     const next=window.prompt('修改'+line.id+'线名称：',line.name);
+     const next=window.prompt('修改线路名称（字母随排序自动更新）：',line.customTitle || String(line.name).replace(/^[A-E]\s*线\s*[｜|:：-]?\s*/u,''));
      if(next===null)return;
      const clean=next.trim();
      if(!clean){window.alert('线路名称不能为空');return}
-     line.name=clean;
-     saveState();render();
+     renamePersistedLine(line,clean);
    }
    const pencil=document.createElement('button');
    pencil.type='button';pencil.className='rail-rename-button';
@@ -719,7 +734,7 @@ function renderLeftRail(){
    pencil.addEventListener('pointerdown',e=>e.stopPropagation());
    pencil.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();renameLine()});
    row.appendChild(pencil);
-   row.setAttribute('aria-label',line.name+'，拖动可调整线路顺序');
+   row.setAttribute('aria-label',lineCaption(line)+'，拖动可调整线路顺序');
    row.addEventListener('dragstart',e=>{
      e.dataTransfer.effectAllowed='move';
      e.dataTransfer.setData('text/plain',line.id);
