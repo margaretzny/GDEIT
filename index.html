@@ -357,6 +357,7 @@ body .side .actions .danger{background:#fff0ef;color:#b5473c;border-color:#f4d2c
 body .side .actions .muted{background:#f1f2f4;color:#30343b;border-color:#e5e7eb}
 body .side .tip,body .side .field label,body .side .relation-panel p,body .side .footer-note,body .side button{font-size:13px!important}
 body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e1;border-radius:10px;padding:6px 8px;background:#fff;color:#1f2937;font:inherit;line-height:1.35;outline:2px solid #bfdbfe}
+.node-note-tooltip{position:fixed;z-index:20000;max-width:min(460px,calc(100vw - 24px));padding:12px 15px;border:1px solid #d9dce3;border-radius:14px;background:rgba(255,255,255,.98);color:#202124;line-height:1.45;box-shadow:0 12px 34px #1113;white-space:pre-wrap;overflow-wrap:anywhere;pointer-events:none}
 @media(max-width:850px){body .toolbar-primary{grid-template-columns:repeat(3,minmax(0,1fr));overflow:visible!important}.toolbar-menu{position:fixed;top:calc(var(--topbar-h) - 2px);left:10px;right:10px;width:auto}.node-tabs{margin-left:-12px;margin-right:-12px;padding-left:12px;padding-right:12px}}
 
 /* Extra affordances for Codex v3.5 sidebar ordering — no changes to timeline/task styles. */
@@ -372,7 +373,7 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
 <div class="app">
   <div class="board">
     <div class="toolbar" id="mainToolbar">
-      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.5</span></h1></div>
+      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.6</span></h1></div>
       <div class="toolbar-primary">
         <div class="toolbar-module" aria-label="导入导出"><button class="secondary toolbar-menu-toggle" data-menu="fileMenu">导入/导出</button><div class="toolbar-menu" id="fileMenu">
           <label class="btn secondary" for="importFile">导入JSON</label><input id="importFile" type="file" accept="application/json" />
@@ -383,9 +384,9 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
           <label class="range-control">纵轴字号<input id="lineFontRange" type="range" min="10" max="30" value="14" step="1"><b id="lineFontValue">14px</b></label>
           <label class="range-control">节点框字号<input id="fontRange" type="range" min="10" max="30" value="14" step="1"><b id="fontValue">14px</b></label>
           <label class="range-control">圆标字号<input id="nodeFontRange" type="range" min="10" max="30" value="14" step="1"><b id="nodeFontValue">14px</b></label>
-          <button id="autoFitBtn" class="secondary">一键自适应</button><span class="auto-fit-note">保留字号，重新紧凑排布全部节点</span>
           <label class="range-control">节点间距<input id="spacingRange" type="range" min="72" max="230" value="105" step="1"><b id="spacingValue">105</b></label>
           <label class="range-control">页面缩放<input id="zoomRange" type="range" min="5" max="160" value="100" step="5"><b id="zoomValue">100%</b></label>
+          <span class="auto-fit-note">保留字号，重新紧凑排布全部节点</span><button id="autoFitBtn" class="secondary">一键自适应</button>
         </div></div>
         <div class="toolbar-module" aria-label="节点设置"><button id="nodeMenuBtn" class="secondary">节点设置</button></div>
         <div class="toolbar-module" aria-label="适合屏幕"><button id="fitBtn" class="secondary">适合屏幕</button></div>
@@ -448,6 +449,7 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
     <div class="footer-note">建议用 Chrome 打开。编辑内容会自动保存在当前浏览器；如需分享给他人，请先导出 JSON 备份。</div>
   </aside>
 </div>
+<div id="nodeNoteTooltip" class="node-note-tooltip" role="tooltip" hidden></div>
 <dialog id="exportDialog" aria-labelledby="exportHeading">
   <div class="export-actions"><strong id="exportHeading">A4 横向 · 导出预览</strong><button id="savePngBtn" class="primary">下载 PNG</button><button id="printPdfBtn">下载 PDF</button><button id="closeExportBtn" aria-label="关闭导出预览">关闭</button></div>
   <img id="exportPreview" alt="当前时间线的 A4 单页导出预览" />
@@ -530,11 +532,15 @@ function visibleLineTitle(line){
   const title=String(line.name||'').replace(/^[A-E]\s*线\s*[｜|:：—-]?\s*/u,'').trim();
   return letter+'线｜'+title;
 }
+function displayLineLetter(lineId){return 'ABCDE'[lineOrder.indexOf(lineId)]||lineId;}
+function displayNodeId(lineId,id){return String(id||'').replace(/^[A-E]/,displayLineLetter(lineId));}
+function storageNodeId(lineId,id){return String(id||'').replace(/^[A-E]/,lineId);}
 function saveLineOrder(newOrder){
  if(new Set(newOrder).size!==5)return;
  lineOrder.splice(0,lineOrder.length,...newOrder);
  extras.lineOrder=[...newOrder];
  persistExtras();
+ initEditorLines();
  render();
 }
 const lineColors = Object.fromEntries(state.lines.map(l => [l.id, l.color]));
@@ -630,7 +636,7 @@ function render(){
       const n=items[0],circle=document.createElement('div');
       circle.className='node '+statusClass(items.some(n=>n.status==='未开始')?'未开始':items.some(n=>n.status==='进行中')?'进行中':n.status);
       circle.style.width=nodeSize+'px';circle.style.height=nodeSize+'px';circle.style.left=(xmap[date]-nodeSize/2)+'px';circle.dataset.line=line.id;circle.dataset.id=n.id;circle.dataset.date=date;
-      circle.title=items.map(n=>`${n.id}｜${n.title}`).join('\n');circle.textContent=fmtDate(date);circle.tabIndex=0;
+      circle.title=items.map(n=>`${displayNodeId(line.id,n.id)}｜${n.title}`).join('\n');circle.textContent=fmtDate(date);circle.tabIndex=0;
       const choose=()=>{if(associationMode){const keys=items.map(n=>nodeKey(line.id,n.id));const all=keys.every(k=>associationSelection.has(k));keys.forEach(k=>all?associationSelection.delete(k):associationSelection.add(k));updateAssociationUI();}else selectNode(line.id,n.id);};
       circle.onclick=choose;circle.onkeydown=e=>{if(e.key==='Enter')choose();};sec.appendChild(circle);
       for(const item of items){
@@ -640,8 +646,8 @@ function render(){
         card.style.width=w+'px';card.style.left=Math.max(LEFT+12,saved?saved.left+(Number.isFinite(saved.anchorX)?xmap[date]-saved.anchorX:0):xmap[date]-w/2)+'px';
         if(saved){card.dataset.manual='true';card.style.top=saved.top+'px';if(saved.height)card.style.minHeight=saved.height+'px';}
         const name=document.createElement('div');name.className='task-name';name.textContent=item.title;
-        const meta=document.createElement('div');meta.className='task-meta';meta.textContent=item.id+' · '+item.status;
-        card.append(name,meta);card.title=item.note||'';
+        const meta=document.createElement('div');meta.className='task-meta';meta.textContent=displayNodeId(line.id,item.id)+' · '+item.status;
+        card.append(name,meta);bindNoteTooltip(card,item.note);
         card.onclick=()=>{if(card.dataset.justDragged)return;associationMode?associationClick(line.id,item.id):selectNode(line.id,item.id);};
         card.onkeydown=e=>{if(e.key==='Enter'){associationMode?associationClick(line.id,item.id):selectNode(line.id,item.id);}};
         for(const corner of ['nw','ne','sw','se']){const h=document.createElement('span');h.className='resize-corner '+corner;h.dataset.corner=corner;card.appendChild(h);}
@@ -651,7 +657,7 @@ function render(){
     arrangeSection(sec);
     const pBox=document.createElement('div');pBox.className='pending-box';
     const label=document.createElement('span');label.className='pending-label';label.textContent='日期待定：';pBox.appendChild(label);
-    for(const item of line.pending||[]){const tag=document.createElement('span');tag.className='pending-tag';tag.textContent=item.id+' '+item.title;tag.onclick=()=>selectNode(line.id,item.id,true);pBox.appendChild(tag);}
+    for(const item of line.pending||[]){const tag=document.createElement('span');tag.className='pending-tag';tag.textContent=displayNodeId(line.id,item.id)+' '+item.title;tag.onclick=()=>selectNode(line.id,item.id,true);pBox.appendChild(tag);}
     if(!line.pending?.length){const empty=document.createElement('span');empty.className='pending-label';empty.textContent='无';pBox.appendChild(empty);}
     sec.appendChild(pBox);sizeSection(sec);
   }
@@ -930,13 +936,34 @@ function findItem(lineId,id){
   const p = (line.pending||[]).find(n=>n.id===id); if(p) return {type:'pending', line, item:p};
   return null;
 }
+let noteTooltipTimer=0;
+function hideNoteTooltip(){
+ clearTimeout(noteTooltipTimer);noteTooltipTimer=0;
+ const tooltip=document.getElementById('nodeNoteTooltip');tooltip.hidden=true;
+}
+function bindNoteTooltip(card,note){
+ if(!note)return;
+ card.addEventListener('mouseenter',()=>{
+   clearTimeout(noteTooltipTimer);
+   noteTooltipTimer=setTimeout(()=>{
+     const tooltip=document.getElementById('nodeNoteTooltip'),box=card.getBoundingClientRect();
+     tooltip.textContent=note;
+     tooltip.style.fontSize=((parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ui-font'))||14)*2)+'px';
+     tooltip.hidden=false;
+     const tip=tooltip.getBoundingClientRect();
+     tooltip.style.left=Math.max(12,Math.min(innerWidth-tip.width-12,box.left))+'px';
+     tooltip.style.top=Math.max(12,box.top-tip.height-10)+'px';
+   },1000);
+ });
+ card.addEventListener('mouseleave',hideNoteTooltip);
+}
 function selectNode(lineId,id,isPending){
   if(associationMode)stopAssociation();
   if(document.body.classList.contains('editor-collapsed'))toggleSidebar(false);
   const found = findItem(lineId,id); if(!found) return;
   selected = {lineId,id,type:found.type};
   emptyState.style.display='none'; editor.style.display='block';
-  document.getElementById('f_id').value = found.item.id || '';
+  document.getElementById('f_id').value = displayNodeId(found.line.id,found.item.id);
   document.getElementById('f_line').value = found.line.id;
   document.getElementById('f_title').value = found.item.title || '';
   document.getElementById('f_date').value = found.type==='node' ? (found.item.date || '') : '';
@@ -946,6 +973,11 @@ function selectNode(lineId,id,isPending){
   document.getElementById('f_note_short').value = found.item.note_short || '';
 }
 function clearSelection(){ selected=null; editor.style.display='none'; emptyState.style.display='block'; }
+function resetNodeForm(){
+ for(const id of ['f_id','f_title','f_date','f_note','f_note_short'])document.getElementById(id).value='';
+ document.getElementById('f_status').value='未开始';
+ document.getElementById('f_place').value='above';
+}
 function saveCurrent(){
   if(!selected) return;
   const cur = findItem(selected.lineId, selected.id); if(!cur) return;
@@ -953,7 +985,7 @@ function saveCurrent(){
   const targetLine = state.lines.find(l=>l.id===newLineId);
   const updated = {
     ...cur.item,
-    id: document.getElementById('f_id').value.trim(),
+    id: storageNodeId(newLineId,document.getElementById('f_id').value.trim()),
     title: document.getElementById('f_title').value.trim(),
     date: document.getElementById('f_date').value || null,
     status: document.getElementById('f_status').value,
@@ -993,21 +1025,23 @@ function addNode(){
   if(associationMode)stopAssociation();
   toggleSidebar(false);clearSelection();
   emptyState.style.display='none'; editor.style.display='block';
-  document.getElementById('f_id').value = 'NEW' + Math.floor(Math.random()*1000);
-  document.getElementById('f_line').value = 'A';
+  const lineId=lineOrder[0],line=state.lines.find(l=>l.id===lineId);
+  const used=[...line.nodes,...(line.pending||[])].map(n=>Number(String(n.id).match(/(\d+)$/)?.[1])||0);
+  document.getElementById('f_id').value = displayLineLetter(lineId)+String(Math.max(0,...used)+1).padStart(2,'0');
+  document.getElementById('f_line').value = lineId;
   document.getElementById('f_title').value = '';
   document.getElementById('f_date').value = '';
   document.getElementById('f_status').value = '未开始';
   document.getElementById('f_place').value = 'above';
   document.getElementById('f_note').value = '';
   document.getElementById('f_note_short').value = '';
-  selected = {lineId:'A', id:null, type:'new'};
+  selected = {lineId, id:null, type:'new'};
 }
 function saveNew(){
   const lineId = document.getElementById('f_line').value;
   const targetLine = state.lines.find(l=>l.id===lineId);
   const updated = {
-    id: document.getElementById('f_id').value.trim() || ('NEW'+Date.now()),
+    id: storageNodeId(lineId,document.getElementById('f_id').value.trim()) || (lineId+Date.now()),
     title: document.getElementById('f_title').value.trim() || '未命名节点',
     date: document.getElementById('f_date').value || null,
     status: document.getElementById('f_status').value,
@@ -1017,8 +1051,7 @@ function saveNew(){
   };
   if(!validNodeId(updated.id,lineId))return;
   if(updated.date) targetLine.nodes.push(updated); else { delete updated.date; (targetLine.pending ||= []).push(updated); }
-  selected = {lineId, id:updated.id, type: updated.date?'node':'pending'};
-  saveState(); render(); selectNode(selected.lineId, selected.id, selected.type==='pending');
+  saveState();render();resetNodeForm();clearSelection();
 }
 function uniqueNodeId(base,line){const ids=new Set([...line.nodes,...(line.pending||[])].map(n=>n.id));let id=base,i=2;while(ids.has(id))id=base+'_'+i++;return id;}
 function validNodeId(id,lineId,except){
@@ -1100,7 +1133,9 @@ function importJson(file){
 }
 function initEditorLines(){
   const sel = document.getElementById('f_line');
-  sel.innerHTML = state.lines.map(l=>`<option value="${l.id}">${l.id}线</option>`).join('');
+  const current=sel.value;
+  sel.innerHTML = lineOrder.map((lineId,index)=>`<option value="${lineId}">${'ABCDE'[index]}线</option>`).join('');
+  if(lineOrder.includes(current))sel.value=current;
 }
 window.addEventListener('resize',scheduleConnectors,{passive:true});
 document.getElementById('saveBtn').onclick = ()=>{ if(selected?.type==='new') saveNew(); else saveCurrent(); };
@@ -1114,6 +1149,10 @@ document.getElementById('relationConfirm').onclick=saveRelation;
 document.getElementById('relationRemove').onclick=removeRelation;
 document.getElementById('relationCancel').onclick=stopAssociation;
 initEditorLines();restoreView(extras.view);render();
+document.getElementById('f_line').addEventListener('change',event=>{
+ const id=document.getElementById('f_id'),suffix=id.value.replace(/^[A-E]/,'');
+ id.value=displayLineLetter(event.target.value)+suffix;
+});
 
 function applyZoom(persist=true){
  currentZoom=Number(document.getElementById('zoomRange').value)/100;
