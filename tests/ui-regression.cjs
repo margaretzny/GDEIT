@@ -71,5 +71,36 @@ async function test(name,run){
     assert.equal(tooltip.hidden,false);
   });
 
+  await test('same-date auto relations can be removed per selected pair and restored',(w)=>{
+    w.drawCrossLines();
+    const before=w.document.querySelectorAll('#crossSvg .cross-relation:not(.explicit-edge)').length;
+    assert(before>=3);
+    w.startAssociation();
+    w.associationClick('A','A00');
+    w.associationClick('D','D10');
+    w.removeRelation();
+    w.drawCrossLines();
+    assert(w.eval("extras.suppressedSameDate.includes('A:A00|D:D10')"));
+    assert.equal(w.document.querySelector('.timeline-task-card[data-line="A"][data-id="A00"]').classList.contains('related-card'),false);
+    assert.equal(w.document.querySelectorAll('#crossSvg .cross-relation:not(.explicit-edge)').length,before-1);
+    w.startAssociation();
+    w.associationClick('A','A00');
+    w.associationClick('D','D10');
+    w.saveRelation();
+    w.drawCrossLines();
+    assert.equal(w.eval("extras.suppressedSameDate.includes('A:A00|D:D10')"),false);
+    assert.equal(w.document.querySelectorAll('#crossSvg .cross-relation:not(.explicit-edge)').length,before);
+  });
+
+  await test('export legend layout fits at the largest available size',(w)=>{
+    const layout=w.exportLegendLayout({width:3508,right:3508-94,minLeft:1850,maxFont:44});
+    assert.deepEqual(Array.from(layout.items, item=>item.label),['已完成','进行中','未开始','待确认／日期待定']);
+    assert.equal(layout.items.length,4);
+    assert(layout.fontPx>12 && layout.fontPx<=44);
+    assert(layout.left>=1850);
+    assert(layout.items.at(-1).right<=3508-94);
+    for(let i=1;i<layout.items.length;i++)assert(layout.items[i].left>=layout.items[i-1].right);
+  });
+
   process.exitCode=failures?1:0;
 })();
