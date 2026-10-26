@@ -81,6 +81,8 @@ async function test(name,run){
     w.removeRelation();
     w.drawCrossLines();
     assert(w.eval("extras.suppressedSameDate.includes('A:A00|D:D10')"));
+    const imported=w.validateBackup(JSON.parse(w.eval("JSON.stringify({lines:state.lines,extras:{layouts:{},groups:[],suppressedSameDate:extras.suppressedSameDate}})")));
+    assert(imported.suppressedSameDate.includes('A:A00|D:D10'));
     assert.equal(w.document.querySelector('.timeline-task-card[data-line="A"][data-id="A00"]').classList.contains('related-card'),false);
     assert.equal(w.document.querySelectorAll('#crossSvg .cross-relation:not(.explicit-edge)').length,before-1);
     w.startAssociation();
