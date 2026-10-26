@@ -373,7 +373,7 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
 <div class="app">
   <div class="board">
     <div class="toolbar" id="mainToolbar">
-      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.6</span></h1></div>
+      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.7</span></h1></div>
       <div class="toolbar-primary">
         <div class="toolbar-module" aria-label="导入导出"><button class="secondary toolbar-menu-toggle" data-menu="fileMenu">导入/导出</button><div class="toolbar-menu" id="fileMenu">
           <label class="btn secondary" for="importFile">导入JSON</label><input id="importFile" type="file" accept="application/json" />
@@ -464,6 +464,7 @@ let activeLineTitleEdit = null;
 const V6_STORAGE='arhk-v6-layout-relations';
 let extras=(()=>{try{return JSON.parse(localStorage.getItem(V6_STORAGE))||{}}catch(e){return {}}})();
 extras.layouts ||= {};extras.groups ||= [];
+if(!Array.isArray(extras.suppressedSameDate))extras.suppressedSameDate=[];
 function persistExtras(){localStorage.setItem(V6_STORAGE,JSON.stringify(extras));}
 const AUTO_FIT_GAP=28; // 至少保留约两个虚线点的视觉间距
 function autoFitCardWidth(){
@@ -477,6 +478,14 @@ function scheduleRender(){if(!renderFrame)renderFrame=requestAnimationFrame(()=>
 let associationMode=false;const associationSelection=new Set();
 function nodeKey(line,id){return line+':'+id;}
 function splitNodeKey(key){const at=key.indexOf(':');return [key.slice(0,at),key.slice(at+1)];}
+function relationPairKey(a,b){return [a,b].sort().join('|');}
+function sameDateSuppressed(a,b){return extras.suppressedSameDate.includes(relationPairKey(a,b));}
+function clearSuppressedPairs(ids){
+ const selected=new Set(ids);
+ extras.suppressedSameDate=extras.suppressedSameDate.filter(pair=>{
+   const parts=pair.split('|');return !(selected.has(parts[0])&&selected.has(parts[1]));
+ });
+}
 function associationClick(line,id){
  const key=nodeKey(line,id);if(associationSelection.has(key))associationSelection.delete(key);else associationSelection.add(key);
  updateAssociationUI();
@@ -517,11 +526,27 @@ function switchNodeTab(tab){
  document.getElementById('relationPanel').classList.toggle('active-side-page',relation);
  document.getElementById('relationPanel').style.display=relation?'block':'none';
 }
-function saveRelation(){const ids=[...associationSelection];if(ids.length<2){alert('请选择至少两个节点');return}extras.groups.push(ids);extras.groups=[...new Map(extras.groups.map(x=>[x.slice().sort().join('|'),x])).values()];persistExtras();stopAssociation();}
+function saveRelation(){
+ const ids=[...associationSelection];
+ if(ids.length<2){alert('请选择至少两个节点');return}
+ clearSuppressedPairs(ids);
+ extras.groups.push(ids);
+ extras.groups=[...new Map(extras.groups.map(x=>[x.slice().sort().join('|'),x])).values()];
+ persistExtras();stopAssociation();
+}
 function removeRelation(){
  if(associationSelection.size<2){alert('请选择至少两个需要解除关联的节点');return;}
  const ids=new Set(associationSelection);
  extras.groups=extras.groups.map(g=>g.filter(k=>ids.has(k)).length>=2?g.filter(k=>!ids.has(k)):g).filter(g=>g.length>1);
+ const selected=[...ids];
+ for(let i=0;i<selected.length;i++)for(let j=i+1;j<selected.length;j++){
+   const [lineA,idA]=splitNodeKey(selected[i]),[lineB,idB]=splitNodeKey(selected[j]);
+   const a=findItem(lineA,idA),b=findItem(lineB,idB);
+   if(a?.item?.date && a.item.date===b?.item?.date){
+     const pair=relationPairKey(selected[i],selected[j]);
+     if(!extras.suppressedSameDate.includes(pair))extras.suppressedSameDate.push(pair);
+   }
+ }
  persistExtras();stopAssociation();
 }
 // Display order follows the requested business sequence while preserving each line's original ID and name.
@@ -735,6 +760,7 @@ function taskConnectorPath(a,b){
 function drawCrossLines(){
  if(!timelineWrap.isConnected)return;
  const fragment=document.createDocumentFragment(),byDate={};
+ const activeAutoKeys=new Set(),activeAutoLineDates=new Set();
  crossSvg.setAttribute('width',timelineWrap.offsetWidth);crossSvg.setAttribute('height',timelineWrap.offsetHeight);
  crossSvg.style.width=timelineWrap.offsetWidth+'px';crossSvg.style.height=timelineWrap.offsetHeight+'px';
  sectionsEl.querySelectorAll('.related-node,.related-card').forEach(el=>el.classList.remove('related-node','related-card'));
@@ -743,11 +769,19 @@ function drawCrossLines(){
    if(els.length<2)continue;
    els.sort((a,b)=>localRect(a).top-localRect(b).top);
    for(let i=1;i<els.length;i++){
-     const path=connector(anchor(els[i-1],'bottom'),anchor(els[i],'top'),'cross-relation');
+     const previous=els[i-1],current=els[i];
+     const previousKey=nodeKey(previous.dataset.line,previous.dataset.id),currentKey=nodeKey(current.dataset.line,current.dataset.id);
+     if(sameDateSuppressed(previousKey,currentKey))continue;
+     const path=connector(anchor(previous,'bottom'),anchor(current,'top'),'cross-relation');
+     path.dataset.from=previousKey;path.dataset.to=currentKey;
      path.setAttribute('stroke','#60a5fa');path.setAttribute('stroke-width','2');path.setAttribute('stroke-dasharray','6 7');fragment.appendChild(path);
+     activeAutoKeys.add(previousKey);activeAutoKeys.add(currentKey);
+     activeAutoLineDates.add(previous.dataset.line+'|'+date);activeAutoLineDates.add(current.dataset.line+'|'+date);
    }
-   els.forEach(el=>el.classList.add('related-node'));
-   sectionsEl.querySelectorAll('.timeline-task-card').forEach(c=>{if(findItem(c.dataset.line,c.dataset.id)?.item.date===date)c.classList.add('related-card');});
+   els.forEach(el=>{if(activeAutoKeys.has(nodeKey(el.dataset.line,el.dataset.id)))el.classList.add('related-node');});
+   sectionsEl.querySelectorAll('.timeline-task-card').forEach(c=>{
+     if(findItem(c.dataset.line,c.dataset.id)?.item.date===date && activeAutoLineDates.has(c.dataset.line+'|'+date))c.classList.add('related-card');
+   });
  }
  drawExplicitRelations(fragment);drawCardConnectors(fragment);crossSvg.replaceChildren(fragment);refreshRelationHighlights();
 }
@@ -1091,7 +1125,7 @@ function restoreView(view={}){
  applyZoom(false);
 }
 function exportJson(){
- const backup={...state,formatVersion:2,extras:{layouts:extras.layouts,groups:extras.groups},view:readView()};
+ const backup={...state,formatVersion:3,extras:{layouts:extras.layouts,groups:extras.groups,suppressedSameDate:extras.suppressedSameDate},view:readView()};
  saveBlob(new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}),'ARHK-Timeline.json');
 }
 function validateBackup(data){
@@ -1106,14 +1140,15 @@ function validateBackup(data){
      if(dated&&(!/^\d{4}-\d{2}-\d{2}$/.test(n.date||'')||!parseDate(n.date)||fmtFull(n.date).replaceAll('.','-')!==n.date))throw new Error('节点日期无效：'+key);
    }
  }
- const layouts=data.extras?.layouts||{},groups=data.extras?.groups||[];
- if(!layouts||typeof layouts!=='object'||Array.isArray(layouts)||!Array.isArray(groups))throw new Error('布局或关联格式无效');
+ const layouts=data.extras?.layouts||{},groups=data.extras?.groups||[],suppressedSameDate=data.extras?.suppressedSameDate||[];
+ if(!layouts||typeof layouts!=='object'||Array.isArray(layouts)||!Array.isArray(groups)||!Array.isArray(suppressedSameDate))throw new Error('布局或关联格式无效');
  for(const [key,v] of Object.entries(layouts)){
    if(!keys.has(key))continue;
    if(!v||!['left','top','width'].every(k=>Number.isFinite(v[k]))||v.left<0||v.top<0||v.width<110||Math.max(v.left,v.top,v.width)>100000||(v.height!==undefined&&(!Number.isFinite(v.height)||v.height<0||v.height>100000))||(v.anchorX!==undefined&&!Number.isFinite(v.anchorX)))throw new Error('卡片布局无效：'+key);
  }
  if(groups.some(g=>!Array.isArray(g)||g.some(k=>typeof k!=='string')))throw new Error('关联格式无效');
- return {layouts:Object.fromEntries(Object.entries(layouts).filter(([k])=>keys.has(k))),groups:groups.map(g=>[...new Set(g.filter(k=>keys.has(k)))]).filter(g=>g.length>1)};
+ if(suppressedSameDate.some(pair=>typeof pair!=='string'||pair.split('|').length!==2))throw new Error('解除关联格式无效');
+ return {layouts:Object.fromEntries(Object.entries(layouts).filter(([k])=>keys.has(k))),groups:groups.map(g=>[...new Set(g.filter(k=>keys.has(k)))]).filter(g=>g.length>1),suppressedSameDate:suppressedSameDate.filter(pair=>pair.split('|').every(k=>keys.has(k)))};
 }
 function importJson(file){
  const reader=new FileReader();
@@ -1142,7 +1177,7 @@ document.getElementById('saveBtn').onclick = ()=>{ if(selected?.type==='new') sa
 document.getElementById('duplicateBtn').onclick = duplicateCurrent;
 document.getElementById('deleteBtn').onclick = deleteCurrent;
 document.getElementById('cancelBtn').onclick = clearSelection;
-document.getElementById('resetBtn').onclick = ()=>{ if(confirm('确认恢复为默认数据？当前浏览器内的修改将丢失。')){ state = structuredClone({lines: DEFAULT_DATA}); extras={layouts:{},groups:[]};saveState();persistExtras();restoreView({spacing:105,font:14,axisFont:14,lineFont:14,nodeFont:14,zoom:100,leftWidth:255});stopAssociation();render();clearSelection();initEditorLines(); }};
+document.getElementById('resetBtn').onclick = ()=>{ if(confirm('确认恢复为默认数据？当前浏览器内的修改将丢失。')){ state = structuredClone({lines: DEFAULT_DATA}); extras={layouts:{},groups:[],suppressedSameDate:[]};saveState();persistExtras();restoreView({spacing:105,font:14,axisFont:14,lineFont:14,nodeFont:14,zoom:100,leftWidth:255});stopAssociation();render();clearSelection();initEditorLines(); }};
 document.getElementById('exportBtn').onclick = exportJson;
 document.getElementById('importFile').addEventListener('change', (e)=>{ const f=e.target.files[0]; if(f) importJson(f); e.target.value='';});
 document.getElementById('relationConfirm').onclick=saveRelation;
@@ -1183,6 +1218,20 @@ document.getElementById('autoFitBtn').onclick=autoFitLayout;
 function saveBlob(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);}
 let exportImage='',exportCanvas=null,exportBusy=false;
 function exportTitleLayout(){return {mainPx:75,englishPx:50,versionPx:37.5,bandPx:120};}
+function exportLegendLayout({width,right,minLeft,maxFont=44,measure}){
+ const items=[{label:'已完成',color:'#27AE60'},{label:'进行中',color:'#2F80ED'},{label:'未开始',color:'#7f8a98'},{label:'待确认／日期待定',color:'#E0A800'}];
+ const textMeasure=measure||((text,font)=>text.length*font*.95);
+ let fontPx=maxFont,layout;
+ do{
+   let x=0;const gap=Math.max(18,fontPx*.55),dot=fontPx*.34;
+   const placed=items.map(item=>{const textWidth=textMeasure(item.label,fontPx),left=x;x+=dot+10+textWidth+gap;return {...item,left,right:x-gap};});
+   layout={fontPx,items:placed,left:placed[0].left,right:x-gap};fontPx-=.5;
+ }while(layout.right>right-minLeft&&fontPx>=12);
+ const shift=right-layout.right;
+ layout.items=layout.items.map(item=>({...item,left:item.left+shift,right:item.right+shift}));
+ layout.left+=shift;layout.right+=shift;
+ return layout;
+}
 async function snapshotA4(){
  await document.fonts.ready;
  if(renderFrame){cancelAnimationFrame(renderFrame);renderFrame=0;render();}
@@ -1224,9 +1273,17 @@ async function snapshotA4(){
  context.fillStyle='#71717a';context.font=`500 ${titleLayout.englishPx}px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif`;context.fillText(englishTitle,margin+mainWidth+32,baseline);
  const englishWidth=context.measureText(englishTitle).width;
  context.fillStyle='#8a8a90';context.font=`650 ${titleLayout.versionPx}px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif`;context.fillText(version,margin+mainWidth+englishWidth+62,baseline);
+ const legend=exportLegendLayout({width:canvas.width,right:canvas.width-margin,minLeft:Math.max(margin+mainWidth+englishWidth+version.length*titleLayout.versionPx+100,canvas.width*.5),maxFont:44,measure:(text,font)=>{context.font=`600 ${font}px -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif`;return context.measureText(text).width;}});
+ context.textBaseline='middle';
+ for(const item of legend.items){
+   const radius=legend.fontPx*.34,centerY=baseline-legend.fontPx*.18;
+   context.fillStyle=item.color;context.beginPath();context.arc(item.left+radius,centerY,radius,0,Math.PI*2);context.fill();
+   context.fillStyle='#4b5563';context.font=`600 ${legend.fontPx}px -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif`;context.fillText(item.label,item.left+radius*2+10,centerY);
+ }
+ context.textBaseline='alphabetic';
  const uiFonts=['fontRange','axisFontRange','lineFontRange','nodeFontRange'].map(id=>Number(document.getElementById(id).value)||14);
  const minFontPt=Math.min(...uiFonts)*scale*72/300;
- return {canvas,url:canvas.toDataURL('image/png'),fontPt:minFontPt,titleFontPt:titleLayout.mainPx*72/300};
+ return {canvas,url:canvas.toDataURL('image/png'),fontPt:minFontPt,titleFontPt:titleLayout.mainPx*72/300,legendFontPx:legend.fontPx};
 }
 async function openExportPreview(){
  if(exportBusy)return;exportBusy=true;
