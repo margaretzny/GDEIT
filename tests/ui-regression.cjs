@@ -58,7 +58,7 @@ async function test(name,run){
     assert.equal(w.document.getElementById('pageMenu').lastElementChild.id,'autoFitBtn');
   });
 
-  await test('detailed note tooltip opens after exactly one second at double font size',(w,dom)=>{
+  await test('detailed note tooltip opens after exactly one second at the card font size',(w,dom)=>{
     const card=w.document.querySelector('.timeline-task-card[data-line="C"][data-id="C01"]');
     assert.equal(card.hasAttribute('title'),false);
     card.dispatchEvent(new w.MouseEvent('mouseenter',{bubbles:true}));
@@ -67,37 +67,39 @@ async function test(name,run){
     timer.fn();
     const tooltip=w.document.querySelector('.node-note-tooltip');
     assert.equal(tooltip.textContent,'已召开董事会');
-    assert.equal(tooltip.style.fontSize,'28px');
+    assert.equal(tooltip.style.fontSize,w.noteTooltipFontPx(card)+'px');
     assert.equal(tooltip.hidden,false);
   });
 
   await test('same-date auto relations can be removed per selected pair and restored',(w)=>{
+    const sameDateId=w.eval("state.lines.find(l=>l.id==='D').nodes.find(n=>n.date==='2026-10-30').id");
+    const relationKey=['A:A00',`D:${sameDateId}`].sort().join('|');
     w.drawCrossLines();
     const before=w.document.querySelectorAll('#crossSvg .cross-relation:not(.explicit-edge)').length;
     assert(before>=3);
     w.startAssociation();
     w.associationClick('A','A00');
-    w.associationClick('D','D10');
+    w.associationClick('D',sameDateId);
     w.removeRelation();
     w.drawCrossLines();
-    assert(w.eval("extras.suppressedSameDate.includes('A:A00|D:D10')"));
+    assert(w.eval(`extras.suppressedSameDate.includes('${relationKey}')`));
     const imported=w.validateBackup(JSON.parse(w.eval("JSON.stringify({lines:state.lines,extras:{layouts:{},groups:[],suppressedSameDate:extras.suppressedSameDate}})")));
-    assert(imported.suppressedSameDate.includes('A:A00|D:D10'));
+    assert(imported.suppressedSameDate.includes(relationKey));
     assert.equal(w.document.querySelector('.timeline-task-card[data-line="A"][data-id="A00"]').classList.contains('related-card'),false);
     assert.equal(w.document.querySelectorAll('#crossSvg .cross-relation:not(.explicit-edge)').length,before-1);
     w.startAssociation();
     w.associationClick('A','A00');
-    w.associationClick('D','D10');
+    w.associationClick('D',sameDateId);
     w.saveRelation();
     w.drawCrossLines();
-    assert.equal(w.eval("extras.suppressedSameDate.includes('A:A00|D:D10')"),false);
+    assert.equal(w.eval(`extras.suppressedSameDate.includes('${relationKey}')`),false);
     assert.equal(w.document.querySelectorAll('#crossSvg .cross-relation:not(.explicit-edge)').length,before);
   });
 
   await test('export legend layout fits at the largest available size',(w)=>{
     const layout=w.exportLegendLayout({width:3508,right:3508-94,minLeft:1850,maxFont:44});
-    assert.deepEqual(Array.from(layout.items, item=>item.label),['已完成','进行中','未开始','待确认／日期待定']);
-    assert.equal(layout.items.length,4);
+    assert.deepEqual(Array.from(layout.items, item=>item.label),['已完成','进行中','未开始','待确认／日期待定','必须完成','暂停']);
+    assert.equal(layout.items.length,6);
     assert(layout.fontPx>12 && layout.fontPx<=44);
     assert(layout.left>=1850);
     assert(layout.items.at(-1).right<=3508-94);
