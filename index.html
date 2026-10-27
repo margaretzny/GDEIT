@@ -344,6 +344,9 @@ body .toolbar .toolbar-module>button{font-size:13px!important;padding:8px 8px!im
 body .month-label{font-size:var(--axis-font)!important}
 body .rail-row{font-size:var(--line-font)!important}
 body .section .node{font-size:var(--node-font)!important}
+body.auto-fit .pending-label,body.auto-fit .pending-tag,body.auto-fit .timeline-task-card .task-meta{font-size:var(--ui-font)!important}
+body.auto-fit .timeline-task-card .task-name,body.auto-fit .timeline-task-card .task-meta{display:inline;line-height:1.08!important}
+body.auto-fit .timeline-task-card .task-meta{margin:0 0 0 8px!important}
 .node-tabs{display:flex;align-items:flex-end;gap:0;margin:-2px -16px 14px;padding:0 16px;border-bottom:1px solid #dfe3ea}
 .node-tab{position:relative;border:1px solid transparent;border-radius:18px 18px 0 0;background:#e5e7eb;color:#6b7280;padding:10px 16px;font-size:13px;font-weight:650;cursor:pointer}
 .node-tab + .node-tab{margin-left:-1px}
@@ -377,7 +380,7 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
 <div class="app">
   <div class="board">
     <div class="toolbar" id="mainToolbar">
-      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.10</span></h1></div>
+      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.11</span></h1></div>
       <div class="toolbar-primary">
         <div class="toolbar-module" aria-label="导入导出"><button class="secondary toolbar-menu-toggle" data-menu="fileMenu">导入/导出</button><div class="toolbar-menu" id="fileMenu">
           <label class="btn secondary" for="importFile">导入JSON</label><input id="importFile" type="file" accept="application/json" />
@@ -390,6 +393,8 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
           <label class="range-control">圆标字号<input id="nodeFontRange" type="range" min="10" max="30" value="14" step="1"><b id="nodeFontValue">14px</b></label>
           <label class="range-control">节点间距<input id="spacingRange" type="range" min="72" max="460" value="105" step="1"><b id="spacingValue">105</b></label>
           <label class="range-control">页面缩放<input id="zoomRange" type="range" min="5" max="160" value="100" step="5"><b id="zoomValue">100%</b></label>
+          <label class="range-control">调整泳道<select id="laneGapLine" aria-label="选择要调整的泳道"></select></label>
+          <label class="range-control">泳道上下空间<input id="laneGapRange" type="range" min="14" max="72" value="28" step="2"><b id="laneGapValue">28px</b></label>
           <span class="auto-fit-note">保留字号，重新紧凑排布全部节点</span><button id="autoFitBtn" class="secondary">一键自适应</button>
         </div></div>
         <div class="toolbar-module" aria-label="节点设置"><button id="nodeMenuBtn" class="secondary">节点设置</button></div>
@@ -462,6 +467,7 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
   <img id="exportPreview" alt="当前时间线的 A3 单页导出预览" />
   <p id="exportNote"></p>
 </dialog>
+<script src="jszip.min.js"></script>
 <script src="pptxgen.min.js"></script>
 <script>
 const DEFAULT_DATA = [{"id": "A", "name": "A线｜汇丰债务和解及共同前置工作", "color": "#2F80ED", "nodes": [{"id": "A00", "title": "整体退出请示授权", "date": "2026-10-30", "status": "进行中", "note": "已启动请示初稿，尚未正式取得授权", "placement": "above"}], "pending": [{"id": "A01", "title": "商定债务和解方案", "status": "进行中", "note": "已口头初步达成一致，待正式确认函"}, {"id": "A02", "title": "正式签署和解协议", "status": "未开始", "note": "签署日期待定"}, {"id": "A03", "title": "拟定最终协议初步条款", "status": "未开始", "note": "与汇丰正式签约同步启动"}, {"id": "A04", "title": "编制收购及处置方案", "status": "未开始", "note": "预计审批需2-3周"}, {"id": "A05", "title": "支付债务清偿款", "status": "未开始", "note": "按MoU及和解协议约定执行"}]}, {"id": "B", "name": "B线｜东江环保所持欧晟揭阳股权交易", "color": "#F2994A", "nodes": [{"id": "B01", "title": "运营管理服务协议", "date": "2026-09-30", "status": "已完成", "note": "已完成签署", "placement": "above"}, {"id": "B02", "title": "候选收渣单位签约", "date": "2026-10-23", "status": "进行中", "note": "正在磋商", "placement": "below"}, {"id": "B04", "title": "取得评估审计报告", "date": "2026-10-30", "status": "未开始", "note": "对应评估审计结果", "placement": "above"}, {"id": "B03", "title": "启动股权挂牌程序", "date": "2026-11-06", "status": "未开始", "note": "可同步启动内部审批流程", "placement": "below"}, {"id": "B05", "title": "挂牌信息披露", "date": "2026-11-20", "status": "未开始", "note": "含20个工作日公示要求", "placement": "above"}, {"id": "B06", "title": "组织产权交易竞价", "date": "2026-11-27", "status": "未开始", "note": "按披露方式组织竞价", "placement": "below"}, {"id": "B07", "title": "签署产权交易合同", "date": "2026-12-04", "status": "未开始", "note": "根据评估结果签署", "placement": "above"}, {"id": "B08", "title": "交易结果公告", "date": "2026-12-11", "status": "未开始", "note": "原计划公告期5个工作日", "placement": "below"}], "pending": []}, {"id": "C", "name": "C线｜欧绿保股权及德国资产交易、最终交割", "color": "#9B51E0", "nodes": [{"id": "C01", "title": "召开评估机构董事会", "date": "2026-09-30", "status": "已完成", "note": "已召开董事会", "placement": "above"}, {"id": "C02", "title": "正式委任评估机构", "date": "2026-10-23", "status": "进行中", "note": "待尾款支付后正式启动评估", "placement": "below"}, {"id": "C05", "title": "签署最终交易协议", "date": "2026-11-17", "status": "未开始", "note": "原计划11月17日，欧绿保曾暂定11月3日", "placement": "above"}, {"id": "C03", "title": "提交最终估值报告", "date": "2026-11-19", "status": "进行中", "note": "正式委任后约6周", "placement": "below"}, {"id": "C04", "title": "协议及公证文件对齐", "date": "2026-11-19", "status": "未开始", "note": "与估值报告节点接近", "placement": "above"}, {"id": "C06", "title": "反垄断合并控制申报", "date": "2026-11-19", "status": "未开始", "note": "提交申请，不代表获批", "placement": "below"}, {"id": "C07", "title": "电子集团审议收购", "date": "2026-11-26", "status": "未开始", "note": "预计1周", "placement": "above"}, {"id": "C08", "title": "广晟集团审议收购", "date": "2026-12-04", "status": "未开始", "note": "预计1周", "placement": "below"}, {"id": "C09", "title": "香港股权变更登记", "date": "2026-12-18", "status": "未开始", "note": "预计2周", "placement": "above"}, {"id": "C10", "title": "国资备案及产权登记", "date": "2027-01-15", "status": "未开始", "note": "顺利情况下约4-5周", "placement": "below"}, {"id": "C11", "title": "完成欧绿保退出交割", "date": "2027-01-30", "status": "未开始", "note": "支付转让款并完成交割", "placement": "above"}], "pending": []}, {"id": "D", "name": "D线｜评估审计及国资审批", "color": "#27AE60", "nodes": [{"id": "D01", "title": "确定评估机构及方案", "date": "2026-09-24", "status": "已完成", "note": "已完成", "placement": "above"}, {"id": "D02", "title": "完成评估审计选聘", "date": "2026-09-24", "status": "已完成", "note": "已启动并完成选聘", "placement": "below"}, {"id": "D03", "title": "预沟通及资料预审", "date": "2026-09-28", "status": "已完成", "note": "已沟通", "placement": "above"}, {"id": "D05", "title": "中介选聘结果备案", "date": "2026-10-16", "status": "未开始", "note": "可与评估同步进行", "placement": "below"}, {"id": "D04", "title": "评估审计机构进场", "date": "2026-10-19", "status": "已完成", "note": "已进场", "placement": "above"}, {"id": "D06", "title": "提交审计初稿", "date": "2026-10-19", "status": "未开始", "note": "事务所提交并沟通", "placement": "below"}, {"id": "D07", "title": "提交评估报告初稿", "date": "2026-10-23", "status": "未开始", "note": "评估机构提交", "placement": "above"}, {"id": "D08", "title": "组织评估专家评审", "date": "2026-10-26", "status": "未开始", "note": "是否需要评审待确认", "placement": "below"}, {"id": "D10", "title": "正式出具评估审计报告", "date": "2026-10-30", "status": "未开始", "note": "与公示先后顺序需关注", "placement": "above"}, {"id": "D09", "title": "评估结果公示", "date": "2026-11-09", "status": "未开始", "note": "10个工作日", "placement": "below"}, {"id": "D11", "title": "电子集团审议评估结果", "date": "2026-11-17", "status": "未开始", "note": "是否需要过会待确认", "placement": "above"}, {"id": "D12", "title": "广晟集团审议评估结果", "date": "2026-11-24", "status": "未开始", "note": "是否需要过会待确认", "placement": "below"}, {"id": "D13", "title": "签署德国资产转让协议", "date": "2026-12-01", "status": "未开始", "note": "与股权转让协议属一揽子安排", "placement": "above"}, {"id": "D14", "title": "签署香港股权转让协议", "date": "2026-12-01", "status": "未开始", "note": "与D13同期签署", "placement": "below"}], "pending": []}, {"id": "E", "name": "E线｜欧晟揭阳整体转让", "color": "#00A3A3", "nodes": [{"id": "E01", "title": "整体挂牌请示及审批", "date": "2026-10-30", "status": "未开始", "note": "完成三家方案对比上报集团", "placement": "above"}, {"id": "E02", "title": "预挂牌", "date": "2027-02-19", "status": "未开始", "note": "原计划公示20个工作日", "placement": "below"}, {"id": "E03", "title": "正式挂牌", "date": "2027-03-19", "status": "未开始", "note": "原计划公示20个工作日", "placement": "above"}, {"id": "E04", "title": "摘牌", "date": "2027-04-02", "status": "未开始", "note": "挂牌期满后安排", "placement": "below"}, {"id": "E05", "title": "电子集团审议转让", "date": "2027-04-09", "status": "未开始", "note": "需确认是否需要过会", "placement": "above"}, {"id": "E06", "title": "广晟集团审议转让", "date": "2027-04-16", "status": "未开始", "note": "需确认是否需要过会", "placement": "below"}, {"id": "E07", "title": "签署产权交易合同", "date": "2027-04-23", "status": "未开始", "note": "签署交易合同", "placement": "above"}, {"id": "E08", "title": "完成产权变更登记", "date": "2027-05-07", "status": "未开始", "note": "最终完成节点", "placement": "below"}], "pending": []}];
@@ -475,12 +481,35 @@ extras.layouts ||= {};extras.groups ||= [];
 if(!Array.isArray(extras.suppressedSameDate))extras.suppressedSameDate=[];
 function persistExtras(){localStorage.setItem(V6_STORAGE,JSON.stringify(extras));}
 const AUTO_FIT_GAP=28; // 至少保留约两个虚线点的视觉间距
-let autoFitProfile=null;
+extras.laneGaps ||= {};
+let autoFitProfile=extras.autoFitProfile||null;
 function autoFitCardWidth(){
  if(autoFitProfile?.cardWidth)return autoFitProfile.cardWidth;
  const font=Number(document.getElementById('fontRange')?.value)||14;
  return Math.max(156,Math.min(240,Math.round(150+font*3)));
 }
+function autoFitCardWidthForItem(item,lineId){
+ const cap=autoFitCardWidth(),font=Number(document.getElementById('fontRange')?.value)||14;
+ if(!document.body.classList.contains('auto-fit')||!item?.title)return cap;
+ const text=`${item.title} ${displayNodeId(lineId,item.id)} · ${item.status||''}`;
+ const desired=Math.ceil([...text].reduce((width,char)=>width+(/[\u2e80-\u9fff\uf900-\ufaff]/u.test(char)?font:font*.58),0))+28;
+ return Math.min(cap,Math.max(156,desired));
+}
+function autoFitDateIntervals(dateKeys,minGap){
+ const index=new Map(dateKeys.map((date,i)=>[date,i])),intervals=Array(Math.max(0,dateKeys.length-1)).fill(8),constraints=[];
+ for(const line of state.lines){
+   const positions=[...new Set(line.nodes.filter(node=>node.date).map(node=>index.get(node.date)).filter(Number.isInteger))].sort((a,b)=>a-b);
+   for(let i=1;i<positions.length;i++)constraints.push([positions[i-1],positions[i]]);
+ }
+ constraints.sort((a,b)=>(a[1]-a[0])-(b[1]-b[0]));
+ for(let pass=0;pass<Math.max(24,dateKeys.length*2);pass++){
+   let changed=false;
+   for(const [start,end] of constraints){const current=intervals.slice(start,end).reduce((sum,value)=>sum+value,0),deficit=minGap-current;if(deficit>0.01){const addition=deficit/(end-start);for(let i=start;i<end;i++)intervals[i]+=addition;changed=true;}}
+   if(!changed)break;
+ }
+ return intervals;
+}
+function laneGapFor(lineId){return Number(extras.laneGaps?.[lineId])||autoFitProfile?.laneGap||AUTO_FIT_GAP;}
 let currentZoom=1;
 let renderFrame=0, connectorFrame=0;
 function scheduleConnectors(){if(!connectorFrame)connectorFrame=requestAnimationFrame(()=>{connectorFrame=0;drawCrossLines();});}
@@ -676,9 +705,13 @@ function render(){
   const dateKeys=[...new Set(getDatedNodes().map(x=>x.node.date))].sort();
   const LEFT=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--left-size'))||255;
   const nodeFont=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--node-font'))||14;
-  const nodeSize=Math.max(36,nodeFont*3.6);
+  const nodeMeasure=document.createElement('canvas').getContext('2d');
+  if(nodeMeasure)nodeMeasure.font=`700 ${nodeFont}px ${getComputedStyle(document.body).fontFamily}`;
+  const widestDate=nodeMeasure?Math.max(0,...dateKeys.map(date=>nodeMeasure.measureText(fmtDate(date)).width)):nodeFont*2.6;
+  const nodeSize=Math.max(36,Math.ceil(widestDate+20));
   const compact=document.body.classList.contains('auto-fit');
-  const COL=Math.max(Number(document.getElementById('spacingRange').value),nodeSize+16);
+  const minDateGap=Math.max(Number(document.getElementById('spacingRange').value),nodeSize+8);
+  const intervals=compact&&autoFitProfile?.compactDates?autoFitDateIntervals(dateKeys,minDateGap):null;
   const xmap={};
   monthsEl.replaceChildren();let lastMonth='',previousLabel=null;
   let x=LEFT+Math.max(80,(compact?autoFitCardWidth():156)/2+12,nodeSize/2+12);
@@ -688,7 +721,7 @@ function render(){
       if(previousLabel)x=Math.max(x,parseFloat(previousLabel.style.left)+(previousLabel.offsetWidth+label.offsetWidth)/2+16);
       label.style.left=x+'px';previousLabel=label;lastMonth=d.slice(0,7);
     }
-    xmap[d]=x;x+=COL;
+    xmap[d]=x;x+=intervals?(intervals[dateKeys.indexOf(d)]||8):minDateGap;
     const tick=document.createElement('div');tick.className='month-line';tick.style.left=xmap[d]+'px';monthsEl.appendChild(tick);
   }
   timelineWrap.style.width=(x+Math.max(140,compact?autoFitCardWidth()/2+24:140))+'px';
@@ -711,7 +744,7 @@ function render(){
       for(const item of items){
         const card=document.createElement('div');card.className='task-card timeline-task-card';card.tabIndex=0;card.dataset.line=line.id;card.dataset.id=item.id;card.dataset.anchor=xmap[date];card.dataset.place=item.placement==='above'?'above':'below';
         const saved=extras.layouts[nodeKey(line.id,item.id)];
-        const w=saved?.width||(document.body.classList.contains('auto-fit')?autoFitCardWidth():156);
+        const w=saved?.width||(document.body.classList.contains('auto-fit')?autoFitCardWidthForItem(item,line.id):156);
         card.style.width=w+'px';card.style.left=Math.max(LEFT+12,saved?saved.left+(Number.isFinite(saved.anchorX)?xmap[date]-saved.anchorX:0):xmap[date]-w/2)+'px';
         if(saved){card.dataset.manual='true';card.style.top=saved.top+'px';if(saved.height)card.style.minHeight=saved.height+'px';}
         const name=document.createElement('div');name.className='task-name';name.textContent=item.title;
@@ -722,6 +755,15 @@ function render(){
         for(const corner of ['nw','ne','sw','se']){const h=document.createElement('span');h.className='resize-corner '+corner;h.dataset.corner=corner;card.appendChild(h);}
         initCardInteraction(card,line.id,item.id);sec.appendChild(card);
       }
+    }
+    if(autoFitProfile?.placementMode==='compact'){
+      const rows=[];
+      for(const card of [...sec.querySelectorAll('.timeline-task-card')].sort((a,b)=>Number(a.dataset.anchor)-Number(b.dataset.anchor)||a.dataset.id.localeCompare(b.dataset.id))){
+        const box=cardBox(card);let row=rows.findIndex(items=>items.every(other=>{const b=cardBox(other);return box.left>=b.left+b.width+12||box.left+box.width+12<=b.left;}));
+        if(row<0){row=rows.length;rows.push([]);}rows[row].push(card);card.dataset.place=row%2?'below':'above';
+      }
+    }else if(autoFitProfile?.placementMode==='alternate'){
+      [...sec.querySelectorAll('.timeline-task-card')].sort((a,b)=>Number(a.dataset.anchor)-Number(b.dataset.anchor)||a.dataset.id.localeCompare(b.dataset.id)).forEach((card,index)=>card.dataset.place=index%2?'below':'above');
     }
     arrangeSection(sec);
     const pBox=document.createElement('div');pBox.className='pending-box';
@@ -734,40 +776,41 @@ function render(){
 }
 function cardBox(card){return {left:parseFloat(card.style.left)||0,top:parseFloat(card.style.top)||0,width:card.offsetWidth,height:card.offsetHeight};}
 function intersects(a,b,gap=10){return a.left<b.left+b.width+gap&&a.left+a.width+gap>b.left&&a.top<b.top+b.height+gap&&a.top+a.height+gap>b.top;}
-function clearCardPosition(card,obstacles){
+function clearCardPosition(card,obstacles,rowGap=AUTO_FIT_GAP){
  const rect=cardBox(card),wantTop=rect.top;
- const candidates=[wantTop,12];
- for(const box of obstacles)candidates.push(box.top-rect.height-12,box.top+box.height+12);
+ const candidates=[wantTop,rowGap];
+ for(const box of obstacles)candidates.push(box.top-rect.height-rowGap,box.top+box.height+rowGap);
  candidates.sort((a,b)=>Math.abs(a-wantTop)-Math.abs(b-wantTop));
  for(const top of candidates){if(top<12)continue;const box={...rect,top};if(!obstacles.some(other=>intersects(box,other))){card.style.top=top+'px';return box;}}
- const top=Math.max(12,...obstacles.map(b=>b.top+b.height+12));card.style.top=top+'px';return {...rect,top};
+ const top=Math.max(rowGap,...obstacles.map(b=>b.top+b.height+rowGap));card.style.top=top+'px';return {...rect,top};
 }
 function arrangeSection(sec){
  const cards=[...sec.querySelectorAll('.timeline-task-card')],lanes={above:[],below:[]};
+ const laneGap=laneGapFor(sec.dataset.line),rowGap=Math.max(8,Math.round(laneGap*.43));
  // Measure actual text/width/height, then allocate rows by horizontal occupancy.
  for(const card of cards){
    const side=card.dataset.place,box=cardBox(card);let i=0;
-   while(lanes[side][i]?.some(c=>{const b=cardBox(c);return box.left<b.left+b.width+12&&box.left+box.width+12>b.left;}))i++;
+   while(lanes[side][i]?.some(c=>{const b=cardBox(c);return box.left<b.left+b.width+rowGap&&box.left+box.width+rowGap>b.left;}))i++;
    (lanes[side][i] ||= []).push(card);
  }
  const heights=side=>lanes[side].map(row=>Math.max(...row.map(c=>c.offsetHeight)));
  const above=heights('above'),below=heights('below');
  const radius=Math.max(18,...[...sec.querySelectorAll('.node')].map(n=>n.offsetHeight/2));
- const axisY=12+above.reduce((n,h)=>n+h+12,0)+radius+AUTO_FIT_GAP;sec.dataset.axisY=axisY;
+ const axisY=12+above.reduce((n,h)=>n+h+rowGap,0)+radius+laneGap;sec.dataset.axisY=axisY;
  sec.querySelector('.axis').style.top=(axisY-5.5)+'px';
  sec.querySelectorAll('.node').forEach(n=>n.style.top=(axisY-n.offsetHeight/2)+'px');
- let y=axisY-radius-AUTO_FIT_GAP;
- lanes.above.forEach((row,i)=>{y-=above[i];row.forEach(c=>{if(!c.dataset.manual)c.style.top=y+'px';});y-=12;});
- y=axisY+radius+AUTO_FIT_GAP;
- lanes.below.forEach((row,i)=>{row.forEach(c=>{if(!c.dataset.manual)c.style.top=y+'px';});y+=below[i]+12;});
+ let y=axisY-radius-laneGap;
+ lanes.above.forEach((row,i)=>{y-=above[i];row.forEach(c=>{if(!c.dataset.manual)c.style.top=y+'px';});y-=rowGap;});
+ y=axisY+radius+laneGap;
+ lanes.below.forEach((row,i)=>{row.forEach(c=>{if(!c.dataset.manual)c.style.top=y+'px';});y+=below[i]+rowGap;});
  const occupied=[{left:0,top:axisY-20,width:1e7,height:40}];
- const gap=AUTO_FIT_GAP;
+ const gap=laneGap;
  sec.querySelectorAll('.node').forEach(node=>{
    const r=cardBox(node);
    occupied.push({left:r.left-gap,top:r.top-gap,width:r.width+gap*2,height:r.height+gap*2});
  });
  // Honor manual coordinates first, moving only cards that actually collide.
- for(const card of [...cards].sort((a,b)=>Number(!!b.dataset.manual)-Number(!!a.dataset.manual))){occupied.push(clearCardPosition(card,occupied));}
+ for(const card of [...cards].sort((a,b)=>Number(!!b.dataset.manual)-Number(!!a.dataset.manual))){occupied.push(clearCardPosition(card,occupied,rowGap));}
 }
 function sizeSection(sec){
  const maxBottom=Math.max(Number(sec.dataset.axisY)+28,...[...sec.querySelectorAll('.timeline-task-card,.node')].map(c=>parseFloat(c.style.top)+c.offsetHeight));
@@ -1155,10 +1198,10 @@ function moveReferences(oldKey,newKey,resetLayout=false){
  persistExtras();
 }
 function readView(){return {spacing:Number(document.getElementById('spacingRange').value),font:Number(document.getElementById('fontRange').value),axisFont:Number(document.getElementById('axisFontRange').value),lineFont:Number(document.getElementById('lineFontRange').value),nodeFont:Number(document.getElementById('nodeFontRange').value),zoom:Number(document.getElementById('zoomRange').value),leftWidth:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--left-size'))||255,highlighted:document.body.classList.contains('highlighted'),editorCollapsed:document.body.classList.contains('editor-collapsed'),autoFit:document.body.classList.contains('auto-fit')};}
-function saveView(){extras.view=readView();persistExtras();}
+function saveView(){extras.view=readView();extras.autoFitProfile=autoFitProfile;persistExtras();}
 function restoreView(view={}){
  view=view&&typeof view==='object'?view:{};
- for(const [key,id,min,max] of [['spacing','spacing',72,230],['font','font',10,30],['axisFont','axisFont',10,30],['lineFont','lineFont',10,30],['nodeFont','nodeFont',10,30],['zoom','zoom',5,160]]){
+ for(const [key,id,min,max] of [['spacing','spacing',72,460],['font','font',10,30],['axisFont','axisFont',10,30],['lineFont','lineFont',10,30],['nodeFont','nodeFont',10,30],['zoom','zoom',5,160]]){
    const v=Number(view[key]);if(Number.isFinite(v)&&v>=min&&v<=max)document.getElementById(id+'Range').value=v;
  }
  if(Number.isFinite(view.leftWidth))document.documentElement.style.setProperty('--left-size',Math.max(130,Math.min(410,view.leftWidth))+'px');
@@ -1179,7 +1222,7 @@ function restoreView(view={}){
  applyZoom(false);
 }
 function exportJson(){
- const backup={...state,formatVersion:3,extras:{layouts:extras.layouts,groups:extras.groups,suppressedSameDate:extras.suppressedSameDate},view:readView()};
+ const backup={...state,formatVersion:4,extras:{layouts:extras.layouts,groups:extras.groups,suppressedSameDate:extras.suppressedSameDate,laneGaps:extras.laneGaps,autoFitProfile},view:readView()};
  saveBlob(new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}),'ARHK-Timeline.json');
 }
 function validateBackup(data){
@@ -1194,7 +1237,7 @@ function validateBackup(data){
      if(dated&&(!/^\d{4}-\d{2}-\d{2}$/.test(n.date||'')||!parseDate(n.date)||fmtFull(n.date).replaceAll('.','-')!==n.date))throw new Error('节点日期无效：'+key);
    }
  }
- const layouts=data.extras?.layouts||{},groups=data.extras?.groups||[],suppressedSameDate=data.extras?.suppressedSameDate||[];
+ const layouts=data.extras?.layouts||{},groups=data.extras?.groups||[],suppressedSameDate=data.extras?.suppressedSameDate||[],laneGaps=data.extras?.laneGaps||{};
  if(!layouts||typeof layouts!=='object'||Array.isArray(layouts)||!Array.isArray(groups)||!Array.isArray(suppressedSameDate))throw new Error('布局或关联格式无效');
  for(const [key,v] of Object.entries(layouts)){
    if(!keys.has(key))continue;
@@ -1202,7 +1245,10 @@ function validateBackup(data){
  }
  if(groups.some(g=>!Array.isArray(g)||g.some(k=>typeof k!=='string')))throw new Error('关联格式无效');
  if(suppressedSameDate.some(pair=>typeof pair!=='string'||pair.split('|').length!==2))throw new Error('解除关联格式无效');
- return {layouts:Object.fromEntries(Object.entries(layouts).filter(([k])=>keys.has(k))),groups:groups.map(g=>[...new Set(g.filter(k=>keys.has(k)))]).filter(g=>g.length>1),suppressedSameDate:suppressedSameDate.filter(pair=>pair.split('|').every(k=>keys.has(k)))};
+ if(!laneGaps||typeof laneGaps!=='object'||Array.isArray(laneGaps)||Object.entries(laneGaps).some(([id,gap])=>!lineOrder.includes(id)||!Number.isFinite(gap)||gap<14||gap>72))throw new Error('泳道间距设置无效');
+ const profile=data.extras?.autoFitProfile||null;
+ if(profile&&(!Number.isFinite(profile.cardWidth)||profile.cardWidth<156||profile.cardWidth>520||!Number.isFinite(profile.spacing)||profile.spacing<72||profile.spacing>460||!Number.isFinite(profile.laneGap)||profile.laneGap<14||profile.laneGap>72||!['original','alternate','compact'].includes(profile.placementMode)))throw new Error('自适应布局设置无效');
+ return {layouts:Object.fromEntries(Object.entries(layouts).filter(([k])=>keys.has(k))),groups:groups.map(g=>[...new Set(g.filter(k=>keys.has(k)))]).filter(g=>g.length>1),suppressedSameDate:suppressedSameDate.filter(pair=>pair.split('|').every(k=>keys.has(k))),laneGaps,autoFitProfile:profile};
 }
 function importJson(file){
  const reader=new FileReader();
@@ -1213,7 +1259,7 @@ function importJson(file){
      // Validate the complete payload before changing either storage bucket.
      const {formatVersion,extras:ignored,view,...business}=data;
      const oldState=state,oldExtras=extras;
-     try{state=business;extras={...loaded,view:view||{}};saveState();persistExtras();}
+     try{state=business;extras={...loaded,view:view||{}};autoFitProfile=extras.autoFitProfile||null;saveState();persistExtras();}
      catch(error){state=oldState;extras=oldExtras;saveState();persistExtras();throw error;}
      associationMode=false;associationSelection.clear();stopAssociation();restoreView(extras.view);initEditorLines();render();clearSelection();alert('导入成功');
    }catch(error){alert('导入失败：'+error.message);}
@@ -1225,13 +1271,17 @@ function initEditorLines(){
   const current=sel.value;
   sel.innerHTML = lineOrder.map((lineId,index)=>`<option value="${lineId}">${'ABCDE'[index]}线</option>`).join('');
   if(lineOrder.includes(current))sel.value=current;
+  const lane=document.getElementById('laneGapLine'),previous=lane.value;
+  lane.innerHTML=lineOrder.map(lineId=>{const line=state.lines.find(item=>item.id===lineId);return `<option value="${lineId}">${escapeHtml(visibleLineTitle(line)||lineId)}</option>`;}).join('');
+  if(lineOrder.includes(previous))lane.value=previous;
+  const gap=Number(extras.laneGaps?.[lane.value])||AUTO_FIT_GAP;document.getElementById('laneGapRange').value=gap;document.getElementById('laneGapValue').textContent=gap+'px';
 }
 window.addEventListener('resize',scheduleConnectors,{passive:true});
 document.getElementById('saveBtn').onclick = ()=>{ if(selected?.type==='new') saveNew(); else saveCurrent(); };
 document.getElementById('duplicateBtn').onclick = duplicateCurrent;
 document.getElementById('deleteBtn').onclick = deleteCurrent;
 document.getElementById('cancelBtn').onclick = clearSelection;
-document.getElementById('resetBtn').onclick = ()=>{ if(confirm('确认恢复为默认数据？当前浏览器内的修改将丢失。')){ state = structuredClone({lines: DEFAULT_DATA}); extras={layouts:{},groups:[],suppressedSameDate:[]};saveState();persistExtras();restoreView({spacing:105,font:14,axisFont:14,lineFont:14,nodeFont:14,zoom:100,leftWidth:255});stopAssociation();render();clearSelection();initEditorLines(); }};
+document.getElementById('resetBtn').onclick = ()=>{ if(confirm('确认恢复为默认数据？当前浏览器内的修改将丢失。')){ state = structuredClone({lines: DEFAULT_DATA}); extras={layouts:{},groups:[],suppressedSameDate:[],laneGaps:{}};autoFitProfile=null;saveState();persistExtras();restoreView({spacing:105,font:14,axisFont:14,lineFont:14,nodeFont:14,zoom:100,leftWidth:255});stopAssociation();render();clearSelection();initEditorLines(); }};
 document.getElementById('exportBtn').onclick = exportJson;
 document.getElementById('importFile').addEventListener('change', (e)=>{ const f=e.target.files[0]; if(f) importJson(f); e.target.value='';});
 document.getElementById('relationConfirm').onclick=saveRelation;
@@ -1263,48 +1313,49 @@ function applyZoom(persist=true){
  if(persist)saveView();scheduleConnectors();
 }
 document.getElementById('spacingRange').addEventListener('input',e=>{document.getElementById('spacingValue').textContent=e.target.value;saveView();scheduleRender();});
+document.getElementById('laneGapLine').addEventListener('change',e=>{const gap=Number(extras.laneGaps?.[e.target.value])||autoFitProfile?.laneGap||AUTO_FIT_GAP;document.getElementById('laneGapRange').value=gap;document.getElementById('laneGapValue').textContent=gap+'px';});
+document.getElementById('laneGapRange').addEventListener('input',e=>{const lineId=document.getElementById('laneGapLine').value,gap=Number(e.target.value);extras.laneGaps[lineId]=gap;document.getElementById('laneGapValue').textContent=gap+'px';persistExtras();scheduleRender();});
 document.getElementById('zoomRange').addEventListener('input',()=>applyZoom());
 document.getElementById('fitBtn').onclick=()=>{
  const available=document.querySelector('.board').clientWidth-24;
  document.getElementById('zoomRange').value=Math.max(5,Math.floor(Math.min(1,available/timelineWrap.offsetWidth)*100/5)*5);applyZoom();
 };
-function autoFitLayout(){
+async function autoFitLayout(){
+ const button=document.getElementById('autoFitBtn'),buttonLabel=button.textContent;button.disabled=true;
  document.body.classList.add('auto-fit');
- const floor=(id,min)=>{const el=document.getElementById(id);if(Number(el.value)<min)el.value=String(min);};
- floor('fontRange',12);floor('axisFontRange',12);floor('lineFontRange',14);floor('nodeFontRange',12);
- document.documentElement.style.setProperty('--ui-font',document.getElementById('fontRange').value+'px');
- document.documentElement.style.setProperty('--axis-font',document.getElementById('axisFontRange').value+'px');
- document.documentElement.style.setProperty('--line-font',document.getElementById('lineFontRange').value+'px');
- document.documentElement.style.setProperty('--node-font',document.getElementById('nodeFontRange').value+'px');
- ['fontRange','axisFontRange','lineFontRange','nodeFontRange'].forEach(id=>{const v=document.getElementById(id).value;const label=document.getElementById(id.replace('Range','Value'));if(label)label.textContent=v+'px';});
- const nodeFont=Number(document.getElementById('nodeFontRange').value)||12;
- const nodeSize=Math.max(42,nodeFont*3.8);
- // Evaluate real DOM layouts instead of assuming that the narrowest timeline is
- // the best one. Wider cards reduce wrapping and can lower each swimlane's height.
- // The score maximizes the usable A3 scale while gently favoring A3 landscape's ratio.
- const pageRatio=420/297, candidates=[180,210,240,270,300,340,380,420];
- const pageW=420-24,pageH=297-46;
- let best=null;
- extras.layouts={};
- for(const cardWidth of candidates){
-   const spacing=Math.max(84,Math.ceil(Math.max(nodeSize+22,cardWidth+24)));
-   autoFitProfile={cardWidth,spacing};
-   document.getElementById('spacingRange').value=Math.min(460,spacing);
-   document.getElementById('spacingValue').textContent=document.getElementById('spacingRange').value;
-   render();
-   const w=Math.max(1,timelineWrap.offsetWidth),h=Math.max(1,timelineWrap.offsetHeight),ratio=w/h;
-   const scale=Math.min(pageW/w,pageH/h),ratioPenalty=Math.abs(Math.log(ratio/pageRatio));
-   const score=scale/(1+ratioPenalty*.18);
-   if(!best||score>best.score)best={cardWidth,spacing,score};
+ const ids=['fontRange','axisFontRange','nodeFontRange'],currentBody=Math.max(...ids.map(id=>Number(document.getElementById(id).value)||14)),currentRail=Math.max(14,Number(document.getElementById('lineFontRange').value)||14);
+ const candidates=(base)=>[...new Set([base,30])];
+ const bodies=candidates(currentBody),rails=candidates(currentRail),widths=[300,420,520],spacings=[124,160,200,240],gaps=[28,40],modes=['original','compact'];
+ const pageW=4961-188,pageH=3508-214-94,pageRatio=420/297;
+ const setFonts=(body,rail)=>{ids.forEach(id=>document.getElementById(id).value=body);document.getElementById('lineFontRange').value=rail;document.documentElement.style.setProperty('--ui-font',body+'px');document.documentElement.style.setProperty('--axis-font',body+'px');document.documentElement.style.setProperty('--node-font',body+'px');document.documentElement.style.setProperty('--line-font',rail+'px');document.getElementById('fontValue').textContent=body+'px';document.getElementById('axisFontValue').textContent=body+'px';document.getElementById('nodeFontValue').textContent=body+'px';document.getElementById('lineFontValue').textContent=rail+'px';};
+ let best=null,checked=0;extras.layouts={};
+ const total=bodies.length*rails.length*widths.length*spacings.length*gaps.length*modes.length;
+ // Score every realistic combination using the same A3 page geometry as export.
+ // First maximize the weakest print-size target, then prefer a page-like aspect ratio.
+ for(const body of bodies)for(const rail of rails){
+   setFonts(body,rail);
+   for(const cardWidth of widths)for(const spacing of spacings)for(const laneGap of gaps)for(const placementMode of modes){
+     autoFitProfile={cardWidth,spacing,laneGap,placementMode,compactDates:true};
+     document.getElementById('spacingRange').value=spacing;
+     render();
+     const metrics=measureA3FontSizes(pageW,pageH),ratio=timelineWrap.offsetWidth/Math.max(1,timelineWrap.offsetHeight);
+     const ratioPenalty=Math.abs(Math.log(ratio/pageRatio)),fit=Math.min(metrics.taskPt/10,metrics.railPt/14);
+     const score=fit/(1+ratioPenalty*.18);
+     if(!best||score>best.score)best={body,rail,cardWidth,spacing,laneGap,placementMode,score,metrics};
+     if(++checked%4===0){button.textContent=`自适应中 ${checked}/${total}`;await new Promise(resolve=>requestAnimationFrame(resolve));}
+   }
  }
- autoFitProfile={cardWidth:best?.cardWidth||270,spacing:best?.spacing||294};
- document.getElementById('spacingRange').value=Math.min(460,autoFitProfile.spacing);
- document.getElementById('spacingValue').textContent=document.getElementById('spacingRange').value;
- // Rebuild once with the selected candidate so connectors and saved positions agree.
- extras.layouts={};
- saveView();
- render();
- scheduleConnectors();
+ setFonts(best.body,best.rail);
+ autoFitProfile={cardWidth:best.cardWidth,spacing:best.spacing,laneGap:best.laneGap,placementMode:best.placementMode,compactDates:true};
+ document.getElementById('spacingRange').value=best.spacing;document.getElementById('spacingValue').textContent=best.spacing;
+ const selectedGap=Number(extras.laneGaps?.[document.getElementById('laneGapLine').value])||best.laneGap;
+ document.getElementById('laneGapRange').value=selectedGap;document.getElementById('laneGapValue').textContent=selectedGap+'px';
+ extras.layouts={};saveView();render();scheduleConnectors();
+ const finalMetrics=measureA3FontSizes(pageW,pageH);
+ button.disabled=false;button.textContent=buttonLabel;
+ alert(finalMetrics.taskPt>=10&&finalMetrics.railPt>=14
+   ? `一键自适应完成。A3横向预计任务文字最小 ${finalMetrics.taskPt.toFixed(1)} pt，左侧线路标题 ${finalMetrics.railPt.toFixed(1)} pt。`
+   : `已按A3横向纸面字号优先完成排布，但受当前内容总量限制，预计任务文字最小 ${finalMetrics.taskPt.toFixed(1)} pt（目标≥10 pt），左侧线路标题 ${finalMetrics.railPt.toFixed(1)} pt（目标≥14 pt）。可以继续调整泳道上下空间，或分批打印。`);
 }
 document.getElementById('autoFitBtn').onclick=autoFitLayout;
 
@@ -1324,6 +1375,14 @@ function exportLegendLayout({width,right,minLeft,maxFont=44,measure}){
  layout.items=layout.items.map(item=>({...item,left:item.left+shift,right:item.right+shift}));
  layout.left+=shift;layout.right+=shift;
  return layout;
+}
+function measureA3FontSizes(pageW=4961-188,pageH=3508-214-94){
+ const width=timelineWrap.offsetWidth+32,height=timelineWrap.offsetHeight+32;
+ const scale=Math.min(pageW/Math.max(width,1),pageH/Math.max(height,1));
+ const minFont=elements=>elements.length?Math.min(...elements.map(el=>parseFloat(getComputedStyle(el).fontSize)||0).filter(n=>n>0)):0;
+ const taskEls=[...timelineWrap.querySelectorAll('.task-name,.task-meta,.month-label,.node,.pending-label,.pending-tag')];
+ const railEls=[...timelineWrap.querySelectorAll('.rail-row')];
+ return {scale,taskPt:minFont(taskEls)*scale*72/300,railPt:minFont(railEls)*scale*72/300};
 }
 async function snapshotA3(){
  await document.fonts.ready;
@@ -1374,9 +1433,8 @@ async function snapshotA3(){
    context.fillStyle='#4b5563';context.font=`600 ${legend.fontPx}px -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif`;context.fillText(item.label,item.left+radius*2+Math.max(14,legend.fontPx*.42),centerY);
  }
  context.textBaseline='alphabetic';
- const uiFonts=['fontRange','axisFontRange','lineFontRange','nodeFontRange'].map(id=>Number(document.getElementById(id).value)||14);
- const minFontPt=Math.min(...uiFonts)*scale*72/300;
- return {canvas,url:canvas.toDataURL('image/png'),fontPt:minFontPt,titleFontPt:titleLayout.mainPx*72/300,legendFontPx:legend.fontPx};
+ const fontMetrics=measureA3FontSizes();
+ return {canvas,url:canvas.toDataURL('image/png'),fontPt:fontMetrics.taskPt,taskPt:fontMetrics.taskPt,railPt:fontMetrics.railPt,titleFontPt:titleLayout.mainPx*72/300,legendFontPx:legend.fontPx};
 }
 async function openExportPreview(){
  if(exportBusy)return;exportBusy=true;
@@ -1385,11 +1443,11 @@ async function openExportPreview(){
    const result=await snapshotA3();exportImage=result.url;exportCanvas=result.canvas;
    document.getElementById('exportPreview').src=exportImage;
    const note=document.getElementById('exportNote');
-   const readable=result.fontPt>=12;
+   const readable=result.taskPt>=10&&result.railPt>=14;
    note.classList.toggle('export-warning',!readable);
    note.textContent=readable
-     ? `标题以 ${result.titleFontPt.toFixed(0)} pt 独立排版；全部线路、待定事项、卡片及关联线已按当前布局等比例放入一张 A3 横向页面。预计最小纸面字号约 ${result.fontPt.toFixed(1)} pt，PNG 与 PDF 使用同一张画面。`
-     : `标题以 ${result.titleFontPt.toFixed(0)} pt 独立排版；当前布局已完整保留并等比例缩放到一张 A3 横向页面，但预计最小纸面字号约 ${result.fontPt.toFixed(1)} pt，低于12 pt目标。点击“页面设置 → 一键自适应”可重新紧凑排布；PNG 与 PDF 使用同一张画面。`;
+     ? `标题以 ${result.titleFontPt.toFixed(0)} pt 独立排版；任务及轴上文字预计最小 ${result.taskPt.toFixed(1)} pt，左侧线路标题 ${result.railPt.toFixed(1)} pt。全部内容完整放入一张 A3 横向页面，PNG 与 PDF 使用同一画面。`
+     : `当前布局已完整放入一张 A3 横向页面；预计任务及轴上文字最小 ${result.taskPt.toFixed(1)} pt（目标≥10 pt），左侧线路标题 ${result.railPt.toFixed(1)} pt（目标≥14 pt）。${document.body.classList.contains('auto-fit')?'一键自适应已完成当前字号上限内的紧凑搜索，但现有内容放在单页时仍低于目标。':'请先点击“页面设置 → 一键自适应”优化。'} PNG 与 PDF 使用同一画面。`;
    document.getElementById('exportDialog').showModal();
  }catch(error){alert('导出失败：'+error.message);}finally{exportBusy=false;buttons.forEach(b=>b.disabled=false);}
 }
