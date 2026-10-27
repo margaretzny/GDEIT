@@ -377,11 +377,11 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
 <div class="app">
   <div class="board">
     <div class="toolbar" id="mainToolbar">
-      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.8</span></h1></div>
+      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.9</span></h1></div>
       <div class="toolbar-primary">
         <div class="toolbar-module" aria-label="导入导出"><button class="secondary toolbar-menu-toggle" data-menu="fileMenu">导入/导出</button><div class="toolbar-menu" id="fileMenu">
           <label class="btn secondary" for="importFile">导入JSON</label><input id="importFile" type="file" accept="application/json" />
-          <button id="exportBtn" class="secondary">导出JSON</button><button id="pngBtn" class="secondary">导出PNG</button><button id="pdfBtn" class="secondary">导出PDF</button>
+          <button id="exportBtn" class="secondary">导出JSON</button><button id="pngBtn" class="secondary">导出PNG</button><button id="pdfBtn" class="secondary">导出PDF</button><button id="pptxBtn" class="secondary">导出PPTX</button>
         </div></div>
         <div class="toolbar-module" aria-label="页面设置"><button class="secondary toolbar-menu-toggle" data-menu="pageMenu">页面设置</button><div class="toolbar-menu" id="pageMenu">
           <label class="range-control">横轴字号<input id="axisFontRange" type="range" min="10" max="30" value="14" step="1"><b id="axisFontValue">14px</b></label>
@@ -458,8 +458,8 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
 </div>
 <div id="nodeNoteTooltip" class="node-note-tooltip" role="tooltip" hidden></div>
 <dialog id="exportDialog" aria-labelledby="exportHeading">
-  <div class="export-actions"><strong id="exportHeading">A4 横向 · 导出预览</strong><button id="savePngBtn" class="primary">下载 PNG</button><button id="printPdfBtn">下载 PDF</button><button id="closeExportBtn" aria-label="关闭导出预览">关闭</button></div>
-  <img id="exportPreview" alt="当前时间线的 A4 单页导出预览" />
+  <div class="export-actions"><strong id="exportHeading">A3 横向 · 导出预览</strong><button id="savePngBtn" class="primary">下载 PNG</button><button id="printPdfBtn">下载 PDF</button><button id="closeExportBtn" aria-label="关闭导出预览">关闭</button></div>
+  <img id="exportPreview" alt="当前时间线的 A3 单页导出预览" />
   <p id="exportNote"></p>
 </dialog>
 <script>
@@ -1267,9 +1267,16 @@ document.getElementById('fitBtn').onclick=()=>{
 };
 function autoFitLayout(){
  document.body.classList.add('auto-fit');
- const nodeFont=Number(document.getElementById('nodeFontRange').value)||14;
- const nodeSize=Math.max(36,nodeFont*3.6);
- const spacing=Math.max(72,Math.ceil(nodeSize+16));
+ const floor=(id,min)=>{const el=document.getElementById(id);if(Number(el.value)<min)el.value=String(min);};
+ floor('fontRange',12);floor('axisFontRange',12);floor('lineFontRange',14);floor('nodeFontRange',12);
+ document.documentElement.style.setProperty('--ui-font',document.getElementById('fontRange').value+'px');
+ document.documentElement.style.setProperty('--axis-font',document.getElementById('axisFontRange').value+'px');
+ document.documentElement.style.setProperty('--line-font',document.getElementById('lineFontRange').value+'px');
+ document.documentElement.style.setProperty('--node-font',document.getElementById('nodeFontRange').value+'px');
+ ['fontRange','axisFontRange','lineFontRange','nodeFontRange'].forEach(id=>{const v=document.getElementById(id).value;const label=document.getElementById(id.replace('Range','Value'));if(label)label.textContent=v+'px';});
+ const nodeFont=Number(document.getElementById('nodeFontRange').value)||12;
+ const nodeSize=Math.max(42,nodeFont*3.8);
+ const spacing=Math.max(84,Math.ceil(nodeSize+22));
  document.getElementById('spacingRange').value=Math.min(230,spacing);
  document.getElementById('spacingValue').textContent=document.getElementById('spacingRange').value;
  // Rebuild card positions from the current data so the layout can be compacted safely.
@@ -1297,7 +1304,7 @@ function exportLegendLayout({width,right,minLeft,maxFont=44,measure}){
  layout.left+=shift;layout.right+=shift;
  return layout;
 }
-async function snapshotA4(){
+async function snapshotA3(){
  await document.fonts.ready;
  if(renderFrame){cancelAnimationFrame(renderFrame);renderFrame=0;render();}
  if(connectorFrame){cancelAnimationFrame(connectorFrame);connectorFrame=0;}
@@ -1321,10 +1328,10 @@ async function snapshotA4(){
  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><foreignObject width="100%" height="100%">${markup}</foreignObject></svg>`;
  const img=new Image();
  await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(new Error('当前浏览器无法生成画面快照，请使用最新版 Chrome'));img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);});
- // A4 landscape at 300 dpi. Uniform fitting preserves every relative position,
+ // A3 landscape at 300 dpi. Uniform fitting preserves every relative position,
  // size, connector and highlight. Zoom is a uniform viewport transform and cancels
  // out when the complete content is fitted to one page.
- const canvas=document.createElement('canvas');canvas.width=3508;canvas.height=2480;
+ const canvas=document.createElement('canvas');canvas.width=4961;canvas.height=3508;
  const context=canvas.getContext('2d');if(!context)throw new Error('无法创建导出画布');
  context.fillStyle='#fff';context.fillRect(0,0,canvas.width,canvas.height);
  const margin=94,titleLayout=exportTitleLayout(),contentTop=margin+titleLayout.bandPx;
@@ -1354,22 +1361,47 @@ async function openExportPreview(){
  if(exportBusy)return;exportBusy=true;
  const buttons=[document.getElementById('pngBtn'),document.getElementById('pdfBtn')];buttons.forEach(b=>b.disabled=true);
  try{
-   const result=await snapshotA4();exportImage=result.url;exportCanvas=result.canvas;
+   const result=await snapshotA3();exportImage=result.url;exportCanvas=result.canvas;
    document.getElementById('exportPreview').src=exportImage;
    const note=document.getElementById('exportNote');
    const readable=result.fontPt>=10;
    note.classList.toggle('export-warning',!readable);
    note.textContent=readable
-     ? `标题以 ${result.titleFontPt.toFixed(0)} pt 独立排版；全部线路、待定事项、卡片及关联线已按当前布局等比例放入一张 A4 横向页面。预计最小纸面字号约 ${result.fontPt.toFixed(1)} pt，满足至少10 pt的可读性目标。PNG 与 PDF 使用同一张画面。`
-     : `标题以 ${result.titleFontPt.toFixed(0)} pt 独立排版；当前布局已完整保留并等比例缩放到一张 A4 横向页面，但预计最小纸面字号约 ${result.fontPt.toFixed(1)} pt，低于10 pt目标。此单页导出不满足10 pt的打印可读性要求；屏幕字号保持原设置。PNG 与 PDF 使用同一张画面。`;
+     ? `标题以 ${result.titleFontPt.toFixed(0)} pt 独立排版；全部线路、待定事项、卡片及关联线已按当前布局等比例放入一张 A3 横向页面。预计最小纸面字号约 ${result.fontPt.toFixed(1)} pt，PNG 与 PDF 使用同一张画面。`
+     : `标题以 ${result.titleFontPt.toFixed(0)} pt 独立排版；当前布局已完整保留并等比例缩放到一张 A3 横向页面，但预计最小纸面字号约 ${result.fontPt.toFixed(1)} pt，低于12 pt目标。点击“页面设置 → 一键自适应”可重新紧凑排布；PNG 与 PDF 使用同一张画面。`;
    document.getElementById('exportDialog').showModal();
  }catch(error){alert('导出失败：'+error.message);}finally{exportBusy=false;buttons.forEach(b=>b.disabled=false);}
 }
 function exportPng(){return openExportPreview();}
 function exportPdf(){return openExportPreview();}
+async function exportPptx(){
+ try{
+   const mod=await import('https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/+esm');
+   const PptxGenJS=mod.default||mod;
+   const pptx=new PptxGenJS();
+   pptx.defineLayout({name:'A3LANDSCAPE',width:16.535,height:11.693});pptx.layout='A3LANDSCAPE';pptx.author='ARHK Timeline';pptx.subject='欧晟项目退出时间线';pptx.title='欧晟项目退出时间线 ARHK Timeline';
+   const slide=pptx.addSlide();slide.background={color:'FFFFFF'};
+   const W=16.535,H=11.693,margin=.28,titleY=.25;
+   const title=document.querySelector('.toolbar-title h1');
+   slide.addText((title?.childNodes[0]?.textContent||'欧晟项目退出时间线').trim(),{x:margin,y:titleY,w:7.2,h:.38,fontFace:'Aptos',fontSize:22,bold:true,color:'202124',margin:0,breakLine:false});
+   slide.addText(document.querySelector('.toolbar-title .english')?.textContent.trim()||'ARHK Timeline',{x:7.7,y:titleY+.02,w:2.3,h:.3,fontFace:'Aptos',fontSize:15,color:'71717A',margin:0});
+   slide.addText(document.getElementById('appVersion')?.textContent.trim()||'',{x:10.1,y:titleY+.03,w:1.0,h:.28,fontSize:11,color:'8A8A90',margin:0});
+   const root=document.getElementById('timelineWrap'),rw=root.offsetWidth||1,rh=root.offsetHeight||1;
+   const top=.9,scale=Math.min((W-margin*2)/rw,(H-top-.25)/rh),ox=(W-rw*scale)/2;
+   const colorHex=c=>String(c||'#7f8a98').replace('#','').toUpperCase();
+   const addText=(text,x,y,w,h,opts={})=>slide.addText(String(text||''),{x:ox+x*scale,y:top+y*scale,w:Math.max(.05,w*scale),h:Math.max(.05,h*scale),fontFace:'Aptos',fontSize:Math.max(9,(opts.font||14)*scale*72/96),color:opts.color||'374151',bold:!!opts.bold,margin:.02,breakLine:false,fit:'shrink'});
+   root.querySelectorAll('.month-label').forEach(el=>{const x=parseFloat(el.style.left)||0;addText(el.textContent,x,0,120,32,{font:parseFloat(getComputedStyle(el).fontSize)||14,bold:true,color:'374151'});});
+   root.querySelectorAll('.rail-row').forEach(el=>{const r=el.getBoundingClientRect(),rr=root.getBoundingClientRect();const y=(r.top-rr.top)/(rr.width/rw);addText(el.querySelector('.rail-line-name')?.textContent||'',12,y/rw*rw,220,r.height,{font:parseFloat(getComputedStyle(el).fontSize)||14,bold:true,color:'374151'});});
+   root.querySelectorAll('.timeline-task-card').forEach(card=>{const x=parseFloat(card.style.left)||0,y=parseFloat(card.style.top)||0,w=card.offsetWidth,h=card.offsetHeight;const bg=getComputedStyle(card).backgroundColor.match(/\d+/g)||[255,255,255];const rgb=bg.map(Number).slice(0,3).map(v=>v.toString(16).padStart(2,'0')).join('').toUpperCase();slide.addShape(pptx.ShapeType.roundRect,{x:ox+x*scale,y:top+y*scale,w:Math.max(.18,w*scale),h:Math.max(.18,h*scale),rectRadius:.08,fill:{color:rgb||'FFFFFF',transparency:8},line:{color:'D7DCE5',width:.7}});addText(card.querySelector('.task-name')?.textContent||'',x+6,y+5,w-12,Math.max(16,h*.6),{font:parseFloat(getComputedStyle(card).fontSize)||14,bold:true,color:'1F2937'});addText(card.querySelector('.task-meta')?.textContent||'',x+6,y+h*.55,w-12,Math.max(12,h*.35),{font:12,color:'6B7280'});});
+   root.querySelectorAll('.node').forEach(node=>{const x=parseFloat(node.style.left)||0,y=parseFloat(node.style.top)||0,s=node.offsetWidth||36;const bg=getComputedStyle(node).backgroundColor.match(/\d+/g)||[127,138,152];const rgb=bg.map(Number).slice(0,3).map(v=>v.toString(16).padStart(2,'0')).join('').toUpperCase();slide.addShape(pptx.ShapeType.ellipse,{x:ox+x*scale,y:top+y*scale,w:s*scale,h:s*scale,fill:{color:rgb},line:{color:'FFFFFF',width:1}});addText(node.textContent,x,y+5,s,s-8,{font:parseFloat(getComputedStyle(node).fontSize)||14,bold:true,color:'FFFFFF'});});
+   slide.addText('颜色图例',{x:11.7,y:.24,w:.8,h:.22,fontSize:10,bold:true,color:'4B5563',margin:0});
+   const legend=[['已完成','27AE60'],['进行中','2F80ED'],['未开始','7F8A98'],['待确认／日期待定','E0A800'],['必须完成','D92D20'],['暂停','9C27B0']];legend.forEach((it,i)=>{const x=12.55+(i%3)*1.25,y=.22+Math.floor(i/3)*.32;slide.addShape(pptx.ShapeType.ellipse,{x,y:y+.03,w:.09,h:.09,fill:{color:it[1]},line:{color:it[1]}});slide.addText(it[0],{x:x+.16,y,w:1.05,h:.18,fontSize:8,color:'4B5563',margin:0});});
+   await pptx.writeFile({fileName:'ARHK-Timeline-A3.pptx'});
+ }catch(error){alert('PPTX导出失败：请检查网络后重试。'+error.message);}
+}
 document.getElementById('closeExportBtn').onclick=()=>document.getElementById('exportDialog').close();
 document.getElementById('savePngBtn').onclick=async()=>{
- if(!exportImage)return;const blob=await (await fetch(exportImage)).blob();saveBlob(blob,'ARHK-Timeline-A4.png');
+ if(!exportImage)return;const blob=await (await fetch(exportImage)).blob();saveBlob(blob,'ARHK-Timeline-A3.png');
 };
 
 async function singlePagePdf(rgb,width,height){
@@ -1382,11 +1414,11 @@ async function singlePagePdf(rgb,width,height){
  text('%PDF-1.4\n');append(new Uint8Array([37,226,227,207,211,10]));
  object(1,'<< /Type /Catalog /Pages 2 0 R >>');
  object(2,'<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
- object(3,'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 841.889764 595.275591] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>');
+ object(3,'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 1190.551181 841.889764] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>');
  offsets[4]=length;
  text(`4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${width} /Height ${height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /Length ${compressed.length} >>\nstream\n`);
  append(compressed);text('\nendstream\nendobj\n');
- const content='q\n841.889764 0 0 595.275591 0 0 cm\n/Im0 Do\nQ\n';
+ const content='q\n1190.551181 0 0 841.889764 0 0 cm\n/Im0 Do\nQ\n';
  object(5,`<< /Length ${encode(content).length} >>\nstream\n${content}endstream`);
  const xref=length;text('xref\n0 6\n0000000000 65535 f \n');
  for(let id=1;id<=5;id++)text(String(offsets[id]).padStart(10,'0')+' 00000 n \n');
@@ -1400,11 +1432,12 @@ document.getElementById('printPdfBtn').onclick=async()=>{
    const {width,height}=exportCanvas,pixels=exportCanvas.getContext('2d').getImageData(0,0,width,height).data;
    const rgb=new Uint8Array(width*height*3);
    for(let i=0,j=0;i<pixels.length;i+=4){rgb[j++]=pixels[i];rgb[j++]=pixels[i+1];rgb[j++]=pixels[i+2];}
-   saveBlob(await singlePagePdf(rgb,width,height),'ARHK-Timeline-A4.pdf');
+   saveBlob(await singlePagePdf(rgb,width,height),'ARHK-Timeline-A3.pdf');
  }catch(error){alert('PDF导出失败：'+error.message);}finally{button.disabled=false;}
 };
 document.getElementById('pngBtn').onclick=exportPng;
 document.getElementById('pdfBtn').onclick=exportPdf;
+document.getElementById('pptxBtn').onclick=exportPptx;
 
 
 const fontSlider=document.getElementById('fontRange');
