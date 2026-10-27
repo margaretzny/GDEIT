@@ -35,6 +35,7 @@
   .status-progress { background:var(--blue); }
   .status-notstart { background:#7f8a98; }
   .status-pending { background:var(--yellow); color:#fff; }
+  .status-mandatory { background:#D92D20; color:#fff; }
   .status-paused { background:#9C27B0; }
   .callout { position:absolute; width:160px; font-size:13px; line-height:1.35; color:#111827; z-index:6; }
   .callout .title { font-weight:700; }
@@ -63,6 +64,10 @@
   .legend { margin-top:18px; border-top:1px solid #edf0f5; padding-top:14px; }
   .legend-item { display:flex; align-items:center; gap:8px; font-size:12px; color:#4b5563; margin-bottom:8px; }
   .swatch { width:12px; height:12px; border-radius:50%; }
+  .color-picker { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .color-picker input[type=color] { width:42px; height:32px; padding:2px; }
+  .color-swatch { width:24px; height:24px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 1px #d9dee7; cursor:pointer; }
+  .color-swatch:focus { outline:2px solid #2563eb; outline-offset:2px; }
   .footer-note { margin-top:14px; font-size:12px; color:#6b7280; line-height:1.5; }
   @media (max-width: 1200px) { .app { grid-template-columns: 1fr; } .side { position:relative; top:0; height:auto; } }
 
@@ -235,8 +240,7 @@ body .section .node,body .timeline-task-card{z-index:12!important}
 .task-connector{fill:none;stroke:#7bb6f5;stroke-width:1.8;stroke-dasharray:4 4;pointer-events:none}
 .task-connector.explicit-connector{stroke:#d7a10b;stroke-width:3}
 body.highlighted .task-connector.explicit-connector{stroke:#e2a800;stroke-width:4;filter:drop-shadow(0 0 3px #ffcc25)}
-body.highlighted .explicit-related{outline:3px solid #f0bc2d!important;box-shadow:0 0 0 6px #fff1a5,0 0 17px 6px #f7ba3388!important;background:#fff4cb!important;font-weight:800!important}
-body.highlighted .node.explicit-related{background:#d99a05!important;color:white!important}
+body.highlighted .explicit-related:not(.node){outline:3px solid #f0bc2d!important;box-shadow:0 0 0 6px #fff1a5,0 0 17px 6px #f7ba3388!important;background:#fff4cb!important;font-weight:800!important}
 body .timeline-task-card{cursor:grab}
 body .side-page{overscroll-behavior-y:auto!important}
 
@@ -373,7 +377,7 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
 <div class="app">
   <div class="board">
     <div class="toolbar" id="mainToolbar">
-      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.7</span></h1></div>
+      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.8</span></h1></div>
       <div class="toolbar-primary">
         <div class="toolbar-module" aria-label="导入导出"><button class="secondary toolbar-menu-toggle" data-menu="fileMenu">导入/导出</button><div class="toolbar-menu" id="fileMenu">
           <label class="btn secondary" for="importFile">导入JSON</label><input id="importFile" type="file" accept="application/json" />
@@ -416,7 +420,7 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
         <div class="field"><label>预计完成日期</label><input id="f_date" type="date" /></div>
         <div class="field"><label>状态</label>
           <select id="f_status">
-            <option>已完成</option><option>进行中</option><option>未开始</option><option>待确认</option><option>暂停</option>
+            <option>已完成</option><option>进行中</option><option>未开始</option><option>待确认</option><option>必须完成</option><option>暂停</option>
           </select>
         </div>
       </div>
@@ -427,6 +431,7 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
         <div class="field"><label>简短备注</label><input id="f_note_short" placeholder="如：预计1周/日期待定" /></div>
       </div>
       <div class="field"><label>详细备注</label><textarea id="f_note"></textarea></div>
+      <div class="field"><label>节点圆点颜色（同日共享圆点时作用于该日期圆点）</label><div class="color-picker" id="colorPicker"><button type="button" class="color-swatch" data-color="" title="按状态自动配色" aria-label="按状态自动配色" style="background:linear-gradient(135deg,#27AE60 0 20%,#2F80ED 20% 40%,#7f8a98 40% 60%,#E0A800 60% 80%,#D92D20 80%)"></button><button type="button" class="color-swatch" data-color="#27AE60" style="background:#27AE60" aria-label="绿色"></button><button type="button" class="color-swatch" data-color="#2F80ED" style="background:#2F80ED" aria-label="蓝色"></button><button type="button" class="color-swatch" data-color="#7f8a98" style="background:#7f8a98" aria-label="灰色"></button><button type="button" class="color-swatch" data-color="#E0A800" style="background:#E0A800" aria-label="黄色，仅待确认"></button><button type="button" class="color-swatch" data-color="#D92D20" style="background:#D92D20" aria-label="红色"></button><input id="f_color" type="color" value="#7f8a98" title="选择自定义颜色" aria-label="选择自定义颜色" /><button type="button" id="pickColorBtn" class="muted">页面取色</button></div></div>
       <div class="actions">
         <button class="primary" id="saveBtn">保存修改</button>
         <button class="ghost" id="duplicateBtn">复制节点</button>
@@ -445,6 +450,8 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
       <div class="legend-item"><span class="swatch" style="background:#2F80ED"></span> 进行中</div>
       <div class="legend-item"><span class="swatch" style="background:#7f8a98"></span> 未开始</div>
       <div class="legend-item"><span class="swatch" style="background:#E0A800"></span> 待确认 / 日期待定</div>
+      <div class="legend-item"><span class="swatch" style="background:#D92D20"></span> 必须完成</div>
+      <div class="legend-item"><span class="swatch" style="background:#9C27B0"></span> 暂停</div>
     </div>
     <div class="footer-note">建议用 Chrome 打开。编辑内容会自动保存在当前浏览器；如需分享给他人，请先导出 JSON 备份。</div>
   </aside>
@@ -558,7 +565,28 @@ function visibleLineTitle(line){
   return letter+'线｜'+title;
 }
 function displayLineLetter(lineId){return 'ABCDE'[lineOrder.indexOf(lineId)]||lineId;}
-function displayNodeId(lineId,id){return String(id||'').replace(/^[A-E]/,displayLineLetter(lineId));}
+function nodeSort(a,b){
+  const ad=a.date||'9999-99-99',bd=b.date||'9999-99-99';
+  return ad.localeCompare(bd);
+}
+function sortLineNodes(line){
+  if(!line)return;
+  line.nodes=[...(line.nodes||[])].sort(nodeSort);
+  line.pending=[...(line.pending||[])].sort((a,b)=>String(a.id).localeCompare(String(b.id)));
+}
+function applySharedDateColor(line,item){
+  if(!line||!item?.date)return;
+  for(const other of line.nodes||[])if(other.date===item.date)other.color=item.color||null;
+}
+function displayNodeId(lineId,id){
+  const line=state.lines.find(l=>l.id===lineId), raw=String(id||'');
+  if(!line||!raw)return raw;
+  const prefix=displayLineLetter(lineId), numeric=raw.match(/(\d+)$/)?.[1]||'';
+  if(numeric==='00')return prefix+'00';
+  const all=[...(line.nodes||[]),...(line.pending||[])].filter(n=>String(n.id).match(/(\d+)$/)?.[1]!=='00');
+  const index=[...all].sort(nodeSort).findIndex(n=>n.id===raw);
+  return displayLineLetter(lineId)+String(index<0?1:index+1).padStart(2,'0');
+}
 function storageNodeId(lineId,id){return String(id||'').replace(/^[A-E]/,lineId);}
 function saveLineOrder(newOrder){
  if(new Set(newOrder).size!==5)return;
@@ -589,8 +617,19 @@ function statusClass(s){
   if(s==='已完成') return 'status-complete';
   if(s==='进行中') return 'status-progress';
   if(s==='待确认') return 'status-pending';
+  if(s==='必须完成') return 'status-mandatory';
   if(s==='暂停') return 'status-paused';
   return 'status-notstart';
+}
+function statusColor(s){return {已完成:'#27AE60',进行中:'#2F80ED',未开始:'#7f8a98',待确认:'#E0A800','必须完成':'#D92D20',暂停:'#9C27B0'}[s]||'#7f8a98';}
+function isReservedYellow(color){const c=String(color||'').toUpperCase();return c==='#E0A800'||c==='#F2C94C'||c==='#D99A05';}
+function nodeColor(item){return item?.color && !(item.status!=='待确认'&&isReservedYellow(item.color)) ? item.color : statusColor(item?.status);}
+function editorColor(status,previousStatus){
+  const color=document.getElementById('f_color')?.value||'';
+  if(!color)return null;
+  if(status!=='待确认'&&isReservedYellow(color))return null;
+  if(previousStatus&&status!==previousStatus&&color.toUpperCase()===statusColor(previousStatus).toUpperCase())return null;
+  return color;
 }
 function parseDate(str){ if(!str) return null; const d = new Date(str+'T00:00:00'); return isNaN(d)?null:d; }
 function fmtDate(str){ if(!str) return '待定'; const d=parseDate(str); if(!d) return str; const m=d.getMonth()+1, day=d.getDate(); return `${m}/${String(day).padStart(2,'0')}`; }
@@ -659,7 +698,9 @@ function render(){
     [...line.nodes].sort((a,b)=>(a.date||'').localeCompare(b.date||'')).forEach(n=>(groups[n.date] ||= []).push(n));
     for(const [date,items] of Object.entries(groups)){
       const n=items[0],circle=document.createElement('div');
-      circle.className='node '+statusClass(items.some(n=>n.status==='未开始')?'未开始':items.some(n=>n.status==='进行中')?'进行中':n.status);
+      const groupStatus=items.some(n=>n.status==='必须完成')?'必须完成':items.some(n=>n.status==='待确认')?'待确认':items.some(n=>n.status==='进行中')?'进行中':items.some(n=>n.status==='未开始')?'未开始':n.status;
+      circle.className='node '+statusClass(groupStatus);
+      circle.style.background=nodeColor({...n,status:groupStatus});
       circle.style.width=nodeSize+'px';circle.style.height=nodeSize+'px';circle.style.left=(xmap[date]-nodeSize/2)+'px';circle.dataset.line=line.id;circle.dataset.id=n.id;circle.dataset.date=date;
       circle.title=items.map(n=>`${displayNodeId(line.id,n.id)}｜${n.title}`).join('\n');circle.textContent=fmtDate(date);circle.tabIndex=0;
       const choose=()=>{if(associationMode){const keys=items.map(n=>nodeKey(line.id,n.id));const all=keys.every(k=>associationSelection.has(k));keys.forEach(k=>all?associationSelection.delete(k):associationSelection.add(k));updateAssociationUI();}else selectNode(line.id,n.id);};
@@ -1002,6 +1043,7 @@ function selectNode(lineId,id,isPending){
   document.getElementById('f_title').value = found.item.title || '';
   document.getElementById('f_date').value = found.type==='node' ? (found.item.date || '') : '';
   document.getElementById('f_status').value = found.item.status || '未开始';
+  document.getElementById('f_color').value = found.item.color || statusColor(found.item.status);
   document.getElementById('f_place').value = found.item.placement || 'above';
   document.getElementById('f_note').value = found.item.note || '';
   document.getElementById('f_note_short').value = found.item.note_short || '';
@@ -1010,6 +1052,7 @@ function clearSelection(){ selected=null; editor.style.display='none'; emptyStat
 function resetNodeForm(){
  for(const id of ['f_id','f_title','f_date','f_note','f_note_short'])document.getElementById(id).value='';
  document.getElementById('f_status').value='未开始';
+ document.getElementById('f_color').value=statusColor('未开始');
  document.getElementById('f_place').value='above';
 }
 function saveCurrent(){
@@ -1023,6 +1066,7 @@ function saveCurrent(){
     title: document.getElementById('f_title').value.trim(),
     date: document.getElementById('f_date').value || null,
     status: document.getElementById('f_status').value,
+    color: editorColor(document.getElementById('f_status').value,cur.item.status),
     placement: document.getElementById('f_place').value,
     note: document.getElementById('f_note').value.trim(),
     note_short: document.getElementById('f_note_short').value.trim(),
@@ -1035,6 +1079,8 @@ function saveCurrent(){
   if(cur.type==='node') cur.line.nodes = cur.line.nodes.filter(n=>n.id!==cur.item.id); else cur.line.pending = cur.line.pending.filter(n=>n.id!==cur.item.id);
   const saveAsNode = !!updated.date;
   if(saveAsNode) targetLine.nodes.push(updated); else { delete updated.date; (targetLine.pending ||= []).push(updated); }
+  sortLineNodes(targetLine);
+  applySharedDateColor(targetLine,updated);
   selected = {lineId:newLineId, id:updated.id, type: saveAsNode?'node':'pending'};
   saveState(); render(); selectNode(selected.lineId, selected.id, selected.type==='pending');
 }
@@ -1045,6 +1091,7 @@ function duplicateCurrent(){
   copy.id = uniqueNodeId(copy.id+'_copy',cur.line);
   copy.title = copy.title + '（副本）';
   if(cur.type==='node') cur.line.nodes.push(copy); else cur.line.pending.push(copy);
+  sortLineNodes(cur.line);
   saveState(); render(); selectNode(cur.line.id, copy.id, cur.type==='pending');
 }
 function deleteCurrent(){
@@ -1066,6 +1113,7 @@ function addNode(){
   document.getElementById('f_title').value = '';
   document.getElementById('f_date').value = '';
   document.getElementById('f_status').value = '未开始';
+  document.getElementById('f_color').value = statusColor('未开始');
   document.getElementById('f_place').value = 'above';
   document.getElementById('f_note').value = '';
   document.getElementById('f_note_short').value = '';
@@ -1079,12 +1127,15 @@ function saveNew(){
     title: document.getElementById('f_title').value.trim() || '未命名节点',
     date: document.getElementById('f_date').value || null,
     status: document.getElementById('f_status').value,
+    color: editorColor(document.getElementById('f_status').value),
     placement: document.getElementById('f_place').value,
     note: document.getElementById('f_note').value.trim(),
     note_short: document.getElementById('f_note_short').value.trim(),
   };
   if(!validNodeId(updated.id,lineId))return;
   if(updated.date) targetLine.nodes.push(updated); else { delete updated.date; (targetLine.pending ||= []).push(updated); }
+  sortLineNodes(targetLine);
+  applySharedDateColor(targetLine,updated);
   saveState();render();resetNodeForm();clearSelection();
 }
 function uniqueNodeId(base,line){const ids=new Set([...line.nodes,...(line.pending||[])].map(n=>n.id));let id=base,i=2;while(ids.has(id))id=base+'_'+i++;return id;}
@@ -1188,6 +1239,20 @@ document.getElementById('f_line').addEventListener('change',event=>{
  const id=document.getElementById('f_id'),suffix=id.value.replace(/^[A-E]/,'');
  id.value=displayLineLetter(event.target.value)+suffix;
 });
+document.querySelectorAll('.color-swatch').forEach(button=>button.addEventListener('click',()=>{
+  const color=button.dataset.color;
+  document.getElementById('f_color').value=color||statusColor(document.getElementById('f_status').value);
+}));
+document.getElementById('f_status').addEventListener('change',event=>{
+  const color=document.getElementById('f_color');
+  if(!color.value||isReservedYellow(color.value))color.value=statusColor(event.target.value);
+});
+document.getElementById('pickColorBtn').addEventListener('click',async()=>{
+  try{
+    if(window.EyeDropper){const picked=await new EyeDropper().open();document.getElementById('f_color').value=picked.sRGBHex;}
+    else alert('当前浏览器不支持屏幕取色，请使用预设色块或颜色输入框。');
+  }catch(e){}
+});
 
 function applyZoom(persist=true){
  currentZoom=Number(document.getElementById('zoomRange').value)/100;
@@ -1219,12 +1284,12 @@ function saveBlob(blob,name){const url=URL.createObjectURL(blob),a=document.crea
 let exportImage='',exportCanvas=null,exportBusy=false;
 function exportTitleLayout(){return {mainPx:75,englishPx:50,versionPx:37.5,bandPx:120};}
 function exportLegendLayout({width,right,minLeft,maxFont=44,measure}){
- const items=[{label:'已完成',color:'#27AE60'},{label:'进行中',color:'#2F80ED'},{label:'未开始',color:'#7f8a98'},{label:'待确认／日期待定',color:'#E0A800'}];
+ const items=[{label:'已完成',color:'#27AE60'},{label:'进行中',color:'#2F80ED'},{label:'未开始',color:'#7f8a98'},{label:'待确认／日期待定',color:'#E0A800'},{label:'必须完成',color:'#D92D20'},{label:'暂停',color:'#9C27B0'}];
  const textMeasure=measure||((text,font)=>text.length*font*.95);
  let fontPx=maxFont,layout;
  do{
-   let x=0;const gap=Math.max(18,fontPx*.55),dot=fontPx*.34;
-   const placed=items.map(item=>{const textWidth=textMeasure(item.label,fontPx),left=x;x+=dot+10+textWidth+gap;return {...item,left,right:x-gap};});
+   let x=0;const gap=Math.max(28,fontPx*.9),dot=fontPx*.34,innerGap=Math.max(14,fontPx*.42);
+   const placed=items.map(item=>{const textWidth=textMeasure(item.label,fontPx),left=x;x+=dot*2+innerGap+textWidth+gap;return {...item,left,right:x-gap};});
    layout={fontPx,items:placed,left:placed[0].left,right:x-gap};fontPx-=.5;
  }while(layout.right>right-minLeft&&fontPx>=12);
  const shift=right-layout.right;
@@ -1278,7 +1343,7 @@ async function snapshotA4(){
  for(const item of legend.items){
    const radius=legend.fontPx*.34,centerY=baseline-legend.fontPx*.18;
    context.fillStyle=item.color;context.beginPath();context.arc(item.left+radius,centerY,radius,0,Math.PI*2);context.fill();
-   context.fillStyle='#4b5563';context.font=`600 ${legend.fontPx}px -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif`;context.fillText(item.label,item.left+radius*2+10,centerY);
+   context.fillStyle='#4b5563';context.font=`600 ${legend.fontPx}px -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif`;context.fillText(item.label,item.left+radius*2+Math.max(14,legend.fontPx*.42),centerY);
  }
  context.textBaseline='alphabetic';
  const uiFonts=['fontRange','axisFontRange','lineFontRange','nodeFontRange'].map(id=>Number(document.getElementById(id).value)||14);
