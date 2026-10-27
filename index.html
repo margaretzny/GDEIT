@@ -348,8 +348,8 @@ body .month-label{font-size:var(--axis-font)!important}
 body .rail-row{font-size:var(--line-font)!important}
 body .section .node{font-size:var(--node-font)!important}
 body.auto-fit .pending-label,body.auto-fit .pending-tag,body.auto-fit .timeline-task-card .task-meta{font-size:var(--ui-font)!important}
-body.auto-fit .timeline-task-card .task-name,body.auto-fit .timeline-task-card .task-meta{display:inline;line-height:1.08!important}
-body.auto-fit .timeline-task-card .task-meta{margin:0 0 0 8px!important}
+body.auto-fit .timeline-task-card .task-name{display:block;white-space:pre-line;line-height:1.16!important;text-wrap:balance}
+body.auto-fit .timeline-task-card .task-meta{display:block;line-height:1.12!important;margin:4px 0 0!important}
 .node-tabs{display:flex;align-items:flex-end;gap:0;margin:-2px -16px 14px;padding:0 16px;border-bottom:1px solid #dfe3ea}
 .node-tab{position:relative;border:1px solid transparent;border-radius:18px 18px 0 0;background:#e5e7eb;color:#6b7280;padding:10px 16px;font-size:13px;font-weight:650;cursor:pointer}
 .node-tab + .node-tab{margin-left:-1px}
@@ -383,7 +383,7 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
 <div class="app">
   <div class="board">
     <div class="toolbar" id="mainToolbar">
-      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.12</span></h1></div>
+      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.13</span></h1></div>
       <div class="toolbar-primary">
         <div class="toolbar-module" aria-label="导入导出"><button class="secondary toolbar-menu-toggle" data-menu="fileMenu">导入/导出</button><div class="toolbar-menu" id="fileMenu">
           <label class="btn secondary" for="importFile">导入JSON</label><input id="importFile" type="file" accept="application/json" />
@@ -471,9 +471,71 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
 <script src="jszip.min.js"></script>
 <script src="pptxgen.min.js"></script>
 <script>
-const DEFAULT_DATA = [{"id": "A", "name": "A线｜汇丰债务和解及共同前置工作", "color": "#2F80ED", "nodes": [{"id": "A00", "title": "整体退出请示授权", "date": "2026-10-30", "status": "进行中", "note": "已启动请示初稿，尚未正式取得授权", "placement": "above"}], "pending": [{"id": "A01", "title": "商定债务和解方案", "status": "进行中", "note": "已口头初步达成一致，待正式确认函"}, {"id": "A02", "title": "正式签署和解协议", "status": "未开始", "note": "签署日期待定"}, {"id": "A03", "title": "拟定最终协议初步条款", "status": "未开始", "note": "与汇丰正式签约同步启动"}, {"id": "A04", "title": "编制收购及处置方案", "status": "未开始", "note": "预计审批需2-3周"}, {"id": "A05", "title": "支付债务清偿款", "status": "未开始", "note": "按MoU及和解协议约定执行"}]}, {"id": "B", "name": "B线｜东江环保所持欧晟揭阳股权交易", "color": "#F2994A", "nodes": [{"id": "B01", "title": "运营管理服务协议", "date": "2026-09-30", "status": "已完成", "note": "已完成签署", "placement": "above"}, {"id": "B02", "title": "候选收渣单位签约", "date": "2026-10-23", "status": "进行中", "note": "正在磋商", "placement": "below"}, {"id": "B04", "title": "取得评估审计报告", "date": "2026-10-30", "status": "未开始", "note": "对应评估审计结果", "placement": "above"}, {"id": "B03", "title": "启动股权挂牌程序", "date": "2026-11-06", "status": "未开始", "note": "可同步启动内部审批流程", "placement": "below"}, {"id": "B05", "title": "挂牌信息披露", "date": "2026-11-20", "status": "未开始", "note": "含20个工作日公示要求", "placement": "above"}, {"id": "B06", "title": "组织产权交易竞价", "date": "2026-11-27", "status": "未开始", "note": "按披露方式组织竞价", "placement": "below"}, {"id": "B07", "title": "签署产权交易合同", "date": "2026-12-04", "status": "未开始", "note": "根据评估结果签署", "placement": "above"}, {"id": "B08", "title": "交易结果公告", "date": "2026-12-11", "status": "未开始", "note": "原计划公告期5个工作日", "placement": "below"}], "pending": []}, {"id": "C", "name": "C线｜欧绿保股权及德国资产交易、最终交割", "color": "#9B51E0", "nodes": [{"id": "C01", "title": "召开评估机构董事会", "date": "2026-09-30", "status": "已完成", "note": "已召开董事会", "placement": "above"}, {"id": "C02", "title": "正式委任评估机构", "date": "2026-10-23", "status": "进行中", "note": "待尾款支付后正式启动评估", "placement": "below"}, {"id": "C05", "title": "签署最终交易协议", "date": "2026-11-17", "status": "未开始", "note": "原计划11月17日，欧绿保曾暂定11月3日", "placement": "above"}, {"id": "C03", "title": "提交最终估值报告", "date": "2026-11-19", "status": "进行中", "note": "正式委任后约6周", "placement": "below"}, {"id": "C04", "title": "协议及公证文件对齐", "date": "2026-11-19", "status": "未开始", "note": "与估值报告节点接近", "placement": "above"}, {"id": "C06", "title": "反垄断合并控制申报", "date": "2026-11-19", "status": "未开始", "note": "提交申请，不代表获批", "placement": "below"}, {"id": "C07", "title": "电子集团审议收购", "date": "2026-11-26", "status": "未开始", "note": "预计1周", "placement": "above"}, {"id": "C08", "title": "广晟集团审议收购", "date": "2026-12-04", "status": "未开始", "note": "预计1周", "placement": "below"}, {"id": "C09", "title": "香港股权变更登记", "date": "2026-12-18", "status": "未开始", "note": "预计2周", "placement": "above"}, {"id": "C10", "title": "国资备案及产权登记", "date": "2027-01-15", "status": "未开始", "note": "顺利情况下约4-5周", "placement": "below"}, {"id": "C11", "title": "完成欧绿保退出交割", "date": "2027-01-30", "status": "未开始", "note": "支付转让款并完成交割", "placement": "above"}], "pending": []}, {"id": "D", "name": "D线｜评估审计及国资审批", "color": "#27AE60", "nodes": [{"id": "D01", "title": "确定评估机构及方案", "date": "2026-09-24", "status": "已完成", "note": "已完成", "placement": "above"}, {"id": "D02", "title": "完成评估审计选聘", "date": "2026-09-24", "status": "已完成", "note": "已启动并完成选聘", "placement": "below"}, {"id": "D03", "title": "预沟通及资料预审", "date": "2026-09-28", "status": "已完成", "note": "已沟通", "placement": "above"}, {"id": "D05", "title": "中介选聘结果备案", "date": "2026-10-16", "status": "未开始", "note": "可与评估同步进行", "placement": "below"}, {"id": "D04", "title": "评估审计机构进场", "date": "2026-10-19", "status": "已完成", "note": "已进场", "placement": "above"}, {"id": "D06", "title": "提交审计初稿", "date": "2026-10-19", "status": "未开始", "note": "事务所提交并沟通", "placement": "below"}, {"id": "D07", "title": "提交评估报告初稿", "date": "2026-10-23", "status": "未开始", "note": "评估机构提交", "placement": "above"}, {"id": "D08", "title": "组织评估专家评审", "date": "2026-10-26", "status": "未开始", "note": "是否需要评审待确认", "placement": "below"}, {"id": "D10", "title": "正式出具评估审计报告", "date": "2026-10-30", "status": "未开始", "note": "与公示先后顺序需关注", "placement": "above"}, {"id": "D09", "title": "评估结果公示", "date": "2026-11-09", "status": "未开始", "note": "10个工作日", "placement": "below"}, {"id": "D11", "title": "电子集团审议评估结果", "date": "2026-11-17", "status": "未开始", "note": "是否需要过会待确认", "placement": "above"}, {"id": "D12", "title": "广晟集团审议评估结果", "date": "2026-11-24", "status": "未开始", "note": "是否需要过会待确认", "placement": "below"}, {"id": "D13", "title": "签署德国资产转让协议", "date": "2026-12-01", "status": "未开始", "note": "与股权转让协议属一揽子安排", "placement": "above"}, {"id": "D14", "title": "签署香港股权转让协议", "date": "2026-12-01", "status": "未开始", "note": "与D13同期签署", "placement": "below"}], "pending": []}, {"id": "E", "name": "E线｜欧晟揭阳整体转让", "color": "#00A3A3", "nodes": [{"id": "E01", "title": "整体挂牌请示及审批", "date": "2026-10-30", "status": "未开始", "note": "完成三家方案对比上报集团", "placement": "above"}, {"id": "E02", "title": "预挂牌", "date": "2027-02-19", "status": "未开始", "note": "原计划公示20个工作日", "placement": "below"}, {"id": "E03", "title": "正式挂牌", "date": "2027-03-19", "status": "未开始", "note": "原计划公示20个工作日", "placement": "above"}, {"id": "E04", "title": "摘牌", "date": "2027-04-02", "status": "未开始", "note": "挂牌期满后安排", "placement": "below"}, {"id": "E05", "title": "电子集团审议转让", "date": "2027-04-09", "status": "未开始", "note": "需确认是否需要过会", "placement": "above"}, {"id": "E06", "title": "广晟集团审议转让", "date": "2027-04-16", "status": "未开始", "note": "需确认是否需要过会", "placement": "below"}, {"id": "E07", "title": "签署产权交易合同", "date": "2027-04-23", "status": "未开始", "note": "签署交易合同", "placement": "above"}, {"id": "E08", "title": "完成产权变更登记", "date": "2027-05-07", "status": "未开始", "note": "最终完成节点", "placement": "below"}], "pending": []}];
+function v313IsoDate(value){
+ const date=value instanceof Date?new Date(value.getTime()):new Date(String(value)+'T12:00:00Z');
+ return Number.isNaN(date.getTime())?'':date.toISOString().slice(0,10);
+}
+function isV313WorkingDay(value){
+ const iso=v313IsoDate(value);if(!iso)return false;
+ const date=new Date(iso+'T12:00:00Z'),day=date.getUTCDay();
+ const holidays=new Set(['2027-01-01','2027-02-05','2027-02-06','2027-02-07','2027-02-08']);
+ return day!==0&&day!==6&&!holidays.has(iso);
+}
+function addV313WorkingDays(value,amount){
+ let date=new Date(v313IsoDate(value)+'T12:00:00Z'),remaining=Math.max(0,Number(amount)||0);
+ while(remaining>0){date.setUTCDate(date.getUTCDate()+1);if(isV313WorkingDay(date))remaining--;}
+ return v313IsoDate(date);
+}
+function v313TitleIncludes(item,needle){return String(item?.title||'').replaceAll(' ','').includes(String(needle||'').replaceAll(' ',''));}
+function renumberV313Line(line){
+ const indexed=(line.nodes||[]).map((node,index)=>({node,index})).sort((a,b)=>String(a.node.date||'9999-99-99').localeCompare(String(b.node.date||'9999-99-99'))||a.index-b.index);
+ line.nodes=indexed.map(entry=>entry.node);
+ const all=[...line.nodes,...(line.pending||[])];
+ all.forEach((node,index)=>{node.id=line.id+String(index+1).padStart(2,'0');});
+}
+function remapV313Extras(extras,keyMap){
+ if(!extras||!keyMap)return;
+ const remap=key=>keyMap.get(key)||key;
+ extras.layouts=Object.fromEntries(Object.entries(extras.layouts||{}).map(([key,value])=>[remap(key),value]));
+ extras.groups=(extras.groups||[]).map(group=>[...new Set(group.map(remap))]).filter(group=>group.length>1);
+ extras.suppressedSameDate=[...new Set((extras.suppressedSameDate||[]).map(pair=>pair.split('|').map(remap).sort().join('|')).filter(pair=>pair.split('|')[0]!==pair.split('|')[1]))];
+}
+function applyV313BusinessMigration(targetState,extras={}){
+ if(Number(extras.businessMigrationVersion)>=313)return false;
+ const lines=targetState?.lines;if(!Array.isArray(lines))return false;
+ const dLine=lines.find(line=>line.id==='D'),eLine=lines.find(line=>line.id==='E');if(!dLine||!eLine)return false;
+ const oldKeys=new Map();for(const line of lines)for(const item of [...(line.nodes||[]),...(line.pending||[])])oldKeys.set(item,`${line.id}:${item.id}`);
+ const find=(items,primary,fallback)=>items.find(item=>v313TitleIncludes(item,primary))||items.find(item=>fallback(item));
+ let prerequisite=find(dLine.nodes||[],'广晟集团完成欧晟揭阳评估结果备案审批',item=>v313TitleIncludes(item,'广晟集团审议评估结果'));
+ const existingPrerequisite=(eLine.nodes||[]).find(item=>v313TitleIncludes(item,'广晟集团完成欧晟揭阳评估结果备案审批'));
+ if(!prerequisite&&existingPrerequisite){extras.businessMigrationVersion=313;return true;}
+ if(!prerequisite)return false;
+ dLine.nodes=dLine.nodes.filter(item=>item!==prerequisite);
+ prerequisite.title='广晟集团完成欧晟揭阳评估结果备案审批';prerequisite.date='2026-12-25';
+ eLine.nodes.push(prerequisite);
+ const specs=[
+  ['开始挂牌披露公示',item=>v313TitleIncludes(item,'摘牌'),'【东江】开始挂牌披露公示（公示时间需在与汇丰签署和解协议后）',1,false],
+  ['产权交易竞价',item=>v313TitleIncludes(item,'电子集团审议转让'),'【东江】产权交易竞价（可在公示期间同步做）',9,false],
+  ['挂牌公示结束',item=>v313TitleIncludes(item,'广晟集团审议转让'),'【东江】挂牌公示结束',10,false],
+  ['签署产权交易合同',item=>false,'【东江/绿动/电子】签署产权交易合同',10,true],
+  ['交易结果公告',item=>v313TitleIncludes(item,'完成产权变更登记'),'【东江】交易结果公告',4,true]
+ ];
+ let cursor=prerequisite.date;
+ const fixedDates=specs.map(spec=>(cursor=addV313WorkingDays(cursor,spec[3])));
+ for(const [index,[match,fallback,title,gap,provisional]] of specs.entries()){
+  const node=find(eLine.nodes.filter(item=>item!==prerequisite),match,fallback);if(!node)continue;
+  node.title=title;node.date=fixedDates[index];
+  if(provisional&&!String(node.note||'').includes('暂定'))node.note=[node.note,'2027年官方调休安排尚未公布，当前日期暂定'].filter(Boolean).join('；');
+ }
+ renumberV313Line(dLine);renumberV313Line(eLine);
+ const keyMap=new Map();for(const line of lines)for(const item of [...(line.nodes||[]),...(line.pending||[])]){const oldKey=oldKeys.get(item);if(oldKey)keyMap.set(oldKey,`${line.id}:${item.id}`);}
+ remapV313Extras(extras,keyMap);extras.businessMigrationVersion=313;return true;
+}
+function migrateImportedV313Payload(business,loadedExtras){applyV313BusinessMigration(business,loadedExtras);return {business,loadedExtras};}
+function buildV313DefaultData(lines){const state={lines:structuredClone(lines)};applyV313BusinessMigration(state,{});return state.lines;}
+const LEGACY_DEFAULT_DATA = [{"id": "A", "name": "A线｜汇丰债务和解及共同前置工作", "color": "#2F80ED", "nodes": [{"id": "A00", "title": "整体退出请示授权", "date": "2026-10-30", "status": "进行中", "note": "已启动请示初稿，尚未正式取得授权", "placement": "above"}], "pending": [{"id": "A01", "title": "商定债务和解方案", "status": "进行中", "note": "已口头初步达成一致，待正式确认函"}, {"id": "A02", "title": "正式签署和解协议", "status": "未开始", "note": "签署日期待定"}, {"id": "A03", "title": "拟定最终协议初步条款", "status": "未开始", "note": "与汇丰正式签约同步启动"}, {"id": "A04", "title": "编制收购及处置方案", "status": "未开始", "note": "预计审批需2-3周"}, {"id": "A05", "title": "支付债务清偿款", "status": "未开始", "note": "按MoU及和解协议约定执行"}]}, {"id": "B", "name": "B线｜东江环保所持欧晟揭阳股权交易", "color": "#F2994A", "nodes": [{"id": "B01", "title": "运营管理服务协议", "date": "2026-09-30", "status": "已完成", "note": "已完成签署", "placement": "above"}, {"id": "B02", "title": "候选收渣单位签约", "date": "2026-10-23", "status": "进行中", "note": "正在磋商", "placement": "below"}, {"id": "B04", "title": "取得评估审计报告", "date": "2026-10-30", "status": "未开始", "note": "对应评估审计结果", "placement": "above"}, {"id": "B03", "title": "启动股权挂牌程序", "date": "2026-11-06", "status": "未开始", "note": "可同步启动内部审批流程", "placement": "below"}, {"id": "B05", "title": "挂牌信息披露", "date": "2026-11-20", "status": "未开始", "note": "含20个工作日公示要求", "placement": "above"}, {"id": "B06", "title": "组织产权交易竞价", "date": "2026-11-27", "status": "未开始", "note": "按披露方式组织竞价", "placement": "below"}, {"id": "B07", "title": "签署产权交易合同", "date": "2026-12-04", "status": "未开始", "note": "根据评估结果签署", "placement": "above"}, {"id": "B08", "title": "交易结果公告", "date": "2026-12-11", "status": "未开始", "note": "原计划公告期5个工作日", "placement": "below"}], "pending": []}, {"id": "C", "name": "C线｜欧绿保股权及德国资产交易、最终交割", "color": "#9B51E0", "nodes": [{"id": "C01", "title": "召开评估机构董事会", "date": "2026-09-30", "status": "已完成", "note": "已召开董事会", "placement": "above"}, {"id": "C02", "title": "正式委任评估机构", "date": "2026-10-23", "status": "进行中", "note": "待尾款支付后正式启动评估", "placement": "below"}, {"id": "C05", "title": "签署最终交易协议", "date": "2026-11-17", "status": "未开始", "note": "原计划11月17日，欧绿保曾暂定11月3日", "placement": "above"}, {"id": "C03", "title": "提交最终估值报告", "date": "2026-11-19", "status": "进行中", "note": "正式委任后约6周", "placement": "below"}, {"id": "C04", "title": "协议及公证文件对齐", "date": "2026-11-19", "status": "未开始", "note": "与估值报告节点接近", "placement": "above"}, {"id": "C06", "title": "反垄断合并控制申报", "date": "2026-11-19", "status": "未开始", "note": "提交申请，不代表获批", "placement": "below"}, {"id": "C07", "title": "电子集团审议收购", "date": "2026-11-26", "status": "未开始", "note": "预计1周", "placement": "above"}, {"id": "C08", "title": "广晟集团审议收购", "date": "2026-12-04", "status": "未开始", "note": "预计1周", "placement": "below"}, {"id": "C09", "title": "香港股权变更登记", "date": "2026-12-18", "status": "未开始", "note": "预计2周", "placement": "above"}, {"id": "C10", "title": "国资备案及产权登记", "date": "2027-01-15", "status": "未开始", "note": "顺利情况下约4-5周", "placement": "below"}, {"id": "C11", "title": "完成欧绿保退出交割", "date": "2027-01-30", "status": "未开始", "note": "支付转让款并完成交割", "placement": "above"}], "pending": []}, {"id": "D", "name": "D线｜评估审计及国资审批", "color": "#27AE60", "nodes": [{"id": "D01", "title": "确定评估机构及方案", "date": "2026-09-24", "status": "已完成", "note": "已完成", "placement": "above"}, {"id": "D02", "title": "完成评估审计选聘", "date": "2026-09-24", "status": "已完成", "note": "已启动并完成选聘", "placement": "below"}, {"id": "D03", "title": "预沟通及资料预审", "date": "2026-09-28", "status": "已完成", "note": "已沟通", "placement": "above"}, {"id": "D05", "title": "中介选聘结果备案", "date": "2026-10-16", "status": "未开始", "note": "可与评估同步进行", "placement": "below"}, {"id": "D04", "title": "评估审计机构进场", "date": "2026-10-19", "status": "已完成", "note": "已进场", "placement": "above"}, {"id": "D06", "title": "提交审计初稿", "date": "2026-10-19", "status": "未开始", "note": "事务所提交并沟通", "placement": "below"}, {"id": "D07", "title": "提交评估报告初稿", "date": "2026-10-23", "status": "未开始", "note": "评估机构提交", "placement": "above"}, {"id": "D08", "title": "组织评估专家评审", "date": "2026-10-26", "status": "未开始", "note": "是否需要评审待确认", "placement": "below"}, {"id": "D10", "title": "正式出具评估审计报告", "date": "2026-10-30", "status": "未开始", "note": "与公示先后顺序需关注", "placement": "above"}, {"id": "D09", "title": "评估结果公示", "date": "2026-11-09", "status": "未开始", "note": "10个工作日", "placement": "below"}, {"id": "D11", "title": "电子集团审议评估结果", "date": "2026-11-17", "status": "未开始", "note": "是否需要过会待确认", "placement": "above"}, {"id": "D12", "title": "广晟集团审议评估结果", "date": "2026-11-24", "status": "未开始", "note": "是否需要过会待确认", "placement": "below"}, {"id": "D13", "title": "签署德国资产转让协议", "date": "2026-12-01", "status": "未开始", "note": "与股权转让协议属一揽子安排", "placement": "above"}, {"id": "D14", "title": "签署香港股权转让协议", "date": "2026-12-01", "status": "未开始", "note": "与D13同期签署", "placement": "below"}], "pending": []}, {"id": "E", "name": "E线｜欧晟揭阳整体转让", "color": "#00A3A3", "nodes": [{"id": "E01", "title": "整体挂牌请示及审批", "date": "2026-10-30", "status": "未开始", "note": "完成三家方案对比上报集团", "placement": "above"}, {"id": "E02", "title": "预挂牌", "date": "2027-02-19", "status": "未开始", "note": "原计划公示20个工作日", "placement": "below"}, {"id": "E03", "title": "正式挂牌", "date": "2027-03-19", "status": "未开始", "note": "原计划公示20个工作日", "placement": "above"}, {"id": "E04", "title": "摘牌", "date": "2027-04-02", "status": "未开始", "note": "挂牌期满后安排", "placement": "below"}, {"id": "E05", "title": "电子集团审议转让", "date": "2027-04-09", "status": "未开始", "note": "需确认是否需要过会", "placement": "above"}, {"id": "E06", "title": "广晟集团审议转让", "date": "2027-04-16", "status": "未开始", "note": "需确认是否需要过会", "placement": "below"}, {"id": "E07", "title": "签署产权交易合同", "date": "2027-04-23", "status": "未开始", "note": "签署交易合同", "placement": "above"}, {"id": "E08", "title": "完成产权变更登记", "date": "2027-05-07", "status": "未开始", "note": "最终完成节点", "placement": "below"}], "pending": []}];
+const DEFAULT_DATA=buildV313DefaultData(LEGACY_DEFAULT_DATA);
 const STORAGE_KEY = 'ousheng-simple-timeline-v1';
-let state = loadState();
 let selected = null;
 let activeLineTitleEdit = null;
 const V6_STORAGE='arhk-v6-layout-relations';
@@ -481,6 +543,8 @@ let extras=(()=>{try{return JSON.parse(localStorage.getItem(V6_STORAGE))||{}}cat
 extras.layouts ||= {};extras.groups ||= [];
 if(!Array.isArray(extras.suppressedSameDate))extras.suppressedSameDate=[];
 function persistExtras(){localStorage.setItem(V6_STORAGE,JSON.stringify(extras));}
+let state=loadState();
+if(applyV313BusinessMigration(state,extras)){localStorage.setItem(STORAGE_KEY,JSON.stringify(state));persistExtras();}
 const AUTO_FIT_GAP=28; // 至少保留约两个虚线点的视觉间距
 const LANE_GAP_MIN=8,LANE_GAP_MAX=200;
 extras.laneGaps ||= {};
@@ -490,12 +554,38 @@ function autoFitCardWidth(){
  const font=Number(document.getElementById('fontRange')?.value)||14;
  return Math.max(156,Math.min(240,Math.round(150+font*3)));
 }
-function autoFitCardWidthForItem(item,lineId){
- const cap=autoFitCardWidth(),font=Number(document.getElementById('fontRange')?.value)||14;
- if(!document.body.classList.contains('auto-fit')||!item?.title)return cap;
- const text=`${item.title} ${displayNodeId(lineId,item.id)} · ${item.status||''}`;
- const desired=Math.ceil([...text].reduce((width,char)=>width+(/[\u2e80-\u9fff\uf900-\ufaff]/u.test(char)?font:font*.58),0))+28;
- return Math.min(cap,Math.max(156,desired));
+function v313TextWidth(text,fontPx){
+ return [...String(text||'')].reduce((width,char)=>width+(/[\u2e80-\u9fff\uf900-\ufaff]/u.test(char)?fontPx:/[A-Za-z0-9]/.test(char)?fontPx*.58:fontPx*.72),0);
+}
+function balancedTitleLines(title,maxWidth,fontPx){
+ const chars=[...String(title||'')];if(chars.length<2)return chars.length?chars:[''];
+ const split=count=>{
+  const lines=[];let start=0,remainingWidth=v313TextWidth(chars.join(''),fontPx);
+  for(let line=0;line<count;line++){
+   const remainingLines=count-line,remainingChars=chars.length-start;
+   if(remainingLines===1){lines.push(chars.slice(start).join(''));break;}
+   const target=remainingWidth/remainingLines,maxTake=remainingChars-(remainingLines-1);let take=1,width=v313TextWidth(chars[start],fontPx);
+   while(take<maxTake){const next=v313TextWidth(chars[start+take],fontPx);if(width+next>target&&take>0)break;width+=next;take++;}
+   const text=chars.slice(start,start+take).join('');lines.push(text);start+=take;remainingWidth-=v313TextWidth(text,fontPx);
+  }
+  return lines;
+ };
+ const limit=Math.max(fontPx,Number(maxWidth)||fontPx);
+ for(let count=2;count<=chars.length;count++){const lines=split(count);if(lines.every(line=>v313TextWidth(line,fontPx)<=limit+.01))return lines;}
+ return chars;
+}
+function v313AvailableCardWidth(line,item,xmap,cap){
+ const current=Number(xmap?.[item?.date]);if(!Number.isFinite(current))return Math.max(110,cap||156);
+ const distances=[...new Set((line?.nodes||[]).filter(node=>node!==item&&node.date&&node.date!==item.date).map(node=>Math.abs(Number(xmap[node.date])-current)).filter(distance=>Number.isFinite(distance)&&distance>0))];
+ const nearest=distances.length?Math.min(...distances)-16:Number(cap)||156;
+ return Math.max(110,Math.min(Number(cap)||156,Math.floor(nearest)));
+}
+function v313AutoFitCardLayout(item,line,xmap,widthOverride){
+ const font=Number(document.getElementById('fontRange')?.value)||14,cap=Number(widthOverride)||autoFitCardWidth();
+ const maxWidth=v313AvailableCardWidth(line,item,xmap,cap),lines=balancedTitleLines(item.title,Math.max(font,maxWidth-20),font);
+ const titleWidth=Math.max(...lines.map(line=>v313TextWidth(line,font))),meta=`${displayNodeId(line.id,item.id)} · ${item.status||''}`;
+ const desired=Math.ceil(Math.max(titleWidth,v313TextWidth(meta,font*.86))+20);
+ return {width:Math.max(110,Math.min(maxWidth,desired)),lines};
 }
 function autoFitDateIntervals(dateKeys,minGap){
  const index=new Map(dateKeys.map((date,i)=>[date,i])),intervals=Array(Math.max(0,dateKeys.length-1)).fill(8),constraints=[];
@@ -745,11 +835,11 @@ function render(){
       circle.onclick=choose;circle.onkeydown=e=>{if(e.key==='Enter')choose();};sec.appendChild(circle);
       for(const item of items){
         const card=document.createElement('div');card.className='task-card timeline-task-card';card.tabIndex=0;card.dataset.line=line.id;card.dataset.id=item.id;card.dataset.anchor=xmap[date];card.dataset.place=item.placement==='above'?'above':'below';
-        const saved=extras.layouts[nodeKey(line.id,item.id)];
-        const w=saved?.width||(document.body.classList.contains('auto-fit')?autoFitCardWidthForItem(item,line.id):156);
+        const saved=extras.layouts[nodeKey(line.id,item.id)],autoLayout=document.body.classList.contains('auto-fit')?v313AutoFitCardLayout(item,line,xmap,saved?.width):null;
+        const w=saved?.width||autoLayout?.width||156;
         card.style.width=w+'px';card.style.left=Math.max(LEFT+12,saved?saved.left+(Number.isFinite(saved.anchorX)?xmap[date]-saved.anchorX:0):xmap[date]-w/2)+'px';
         if(saved){card.dataset.manual='true';card.style.top=saved.top+'px';if(saved.height)card.style.minHeight=saved.height+'px';}
-        const name=document.createElement('div');name.className='task-name';name.textContent=item.title;
+        const name=document.createElement('div');name.className='task-name';name.textContent=autoLayout?autoLayout.lines.join('\n'):item.title;
         const meta=document.createElement('div');meta.className='task-meta';meta.textContent=displayNodeId(line.id,item.id)+' · '+item.status;
         card.append(name,meta);bindNoteTooltip(card,item.note);
         card.onclick=()=>{if(card.dataset.justDragged)return;associationMode?associationClick(line.id,item.id):selectNode(line.id,item.id);};
@@ -951,6 +1041,7 @@ function refreshRelationHighlights(){
 function initCardInteraction(card,line,id){
  card.addEventListener('pointerdown',e=>{
    if(associationMode||e.button!==0)return;
+   hideNoteTooltip();
    const corner=e.target.closest('.resize-corner'),sec=card.closest('.section');
    const startX=e.clientX,startY=e.clientY,zoom=timelineWrap.getBoundingClientRect().width/timelineWrap.offsetWidth||1;
    const orig=cardBox(card);let moved=false,frame=0,lastEvent;
@@ -1103,6 +1194,10 @@ function hideNoteTooltip(){
  clearTimeout(noteTooltipTimer);noteTooltipTimer=0;
  const tooltip=document.getElementById('nodeNoteTooltip');tooltip.hidden=true;
 }
+function noteTooltipFontPx(card){
+ const title=card?.querySelector?.('.task-name')||card;
+ return parseFloat(getComputedStyle(title).fontSize)||14;
+}
 function bindNoteTooltip(card,note){
  if(!note)return;
  card.addEventListener('mouseenter',()=>{
@@ -1110,7 +1205,7 @@ function bindNoteTooltip(card,note){
    noteTooltipTimer=setTimeout(()=>{
      const tooltip=document.getElementById('nodeNoteTooltip'),box=card.getBoundingClientRect();
      tooltip.textContent=note;
-     tooltip.style.fontSize=((parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ui-font'))||14)*2)+'px';
+     tooltip.style.fontSize=noteTooltipFontPx(card)+'px';
      tooltip.hidden=false;
      const tip=tooltip.getBoundingClientRect();
      tooltip.style.left=Math.max(12,Math.min(innerWidth-tip.width-12,box.left))+'px';
@@ -1263,7 +1358,7 @@ function restoreView(view={}){
  applyZoom(false);
 }
 function exportJson(){
- const backup={...state,formatVersion:4,extras:{layouts:extras.layouts,groups:extras.groups,suppressedSameDate:extras.suppressedSameDate,laneGaps:extras.laneGaps,autoFitProfile},view:readView()};
+ const backup={...state,formatVersion:4,extras:{layouts:extras.layouts,groups:extras.groups,suppressedSameDate:extras.suppressedSameDate,laneGaps:extras.laneGaps,autoFitProfile,businessMigrationVersion:extras.businessMigrationVersion},view:readView()};
  saveBlob(new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}),'ARHK-Timeline.json');
 }
 function validateBackup(data){
@@ -1300,7 +1395,7 @@ function importJson(file){
      // Validate the complete payload before changing either storage bucket.
      const {formatVersion,extras:ignored,view,...business}=data;
      const oldState=state,oldExtras=extras;
-     try{state=business;extras={...loaded,view:view||{}};autoFitProfile=extras.autoFitProfile||null;saveState();persistExtras();}
+     try{const nextExtras={...loaded,view:view||{}};migrateImportedV313Payload(business,nextExtras);state=business;extras=nextExtras;autoFitProfile=extras.autoFitProfile||null;saveState();persistExtras();}
      catch(error){state=oldState;extras=oldExtras;saveState();persistExtras();throw error;}
      associationMode=false;associationSelection.clear();stopAssociation();restoreView(extras.view);initEditorLines();render();clearSelection();alert('导入成功');
    }catch(error){alert('导入失败：'+error.message);}
