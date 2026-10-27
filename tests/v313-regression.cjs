@@ -127,9 +127,11 @@ console.log('v3.13 tooltip interaction regression: PASS');
 
 const wrapApi = load(['v313TextWidth', 'balancedTitleLines', 'v313AvailableCardWidth']);
 const shortLines = wrapApi.balancedTitleLines('挂牌公示结束', 300, 14);
-assert.strictEqual(shortLines.length, 2, 'auto-fit titles default to two balanced lines');
+assert.strictEqual(shortLines.length, 1, 'short auto-fit titles stay on one line');
 assert.strictEqual(shortLines.join(''), '挂牌公示结束');
-assert(Math.abs(shortLines[0].length - shortLines[1].length) <= 1);
+const twoLines=wrapApi.balancedTitleLines('挂牌公示结束',45,14);
+assert.strictEqual(twoLines.length,2);
+assert(Math.abs(twoLines[0].length-twoLines[1].length)<=1);
 const longTitle = '【东江】开始挂牌披露公示（公示时间需在与汇丰签署和解协议后）';
 const narrowLines = wrapApi.balancedTitleLines(longTitle, 86, 16);
 assert(narrowLines.length > 2, 'narrow cards must add lines');

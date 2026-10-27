@@ -350,6 +350,12 @@ body .section .node{font-size:var(--node-font)!important}
 body.auto-fit .pending-label,body.auto-fit .pending-tag,body.auto-fit .timeline-task-card .task-meta{font-size:var(--ui-font)!important}
 body.auto-fit .timeline-task-card .task-name{display:block;white-space:pre-line;line-height:1.16!important;text-wrap:balance}
 body.auto-fit .timeline-task-card .task-meta{display:block;line-height:1.12!important;margin:4px 0 0!important}
+body.auto-fit .timeline-task-card:not([data-manual]){min-height:0!important}
+body .toolbar-primary{grid-template-columns:repeat(3,minmax(0,1fr)) auto repeat(3,minmax(0,1fr))}
+body .toolbar .history-controls{display:flex;gap:4px;align-items:center}
+body .toolbar .history-controls button{width:32px;min-width:32px;padding:6px!important;font-size:20px!important;line-height:1.2}
+body .toolbar .history-controls button:disabled{opacity:.3;cursor:default}
+body.auto-fitting .app{pointer-events:none}
 .node-tabs{display:flex;align-items:flex-end;gap:0;margin:-2px -16px 14px;padding:0 16px;border-bottom:1px solid #dfe3ea}
 .node-tab{position:relative;border:1px solid transparent;border-radius:18px 18px 0 0;background:#e5e7eb;color:#6b7280;padding:10px 16px;font-size:13px;font-weight:650;cursor:pointer}
 .node-tab + .node-tab{margin-left:-1px}
@@ -383,7 +389,7 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
 <div class="app">
   <div class="board">
     <div class="toolbar" id="mainToolbar">
-      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.13</span></h1></div>
+      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.14</span></h1></div>
       <div class="toolbar-primary">
         <div class="toolbar-module" aria-label="导入导出"><button class="secondary toolbar-menu-toggle" data-menu="fileMenu">导入/导出</button><div class="toolbar-menu" id="fileMenu">
           <label class="btn secondary" for="importFile">导入JSON</label><input id="importFile" type="file" accept="application/json" />
@@ -399,6 +405,7 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
           <span class="auto-fit-note">保留字号，重新紧凑排布全部节点</span><button id="autoFitBtn" class="secondary">一键自适应</button>
         </div></div>
         <div class="toolbar-module" aria-label="节点设置"><button id="nodeMenuBtn" class="secondary">节点设置</button></div>
+        <div class="history-controls" role="group" aria-label="撤销与重做"><button id="undoBtn" class="secondary" aria-label="撤销" title="撤销（⌘Z / Ctrl+Z）" disabled>↶</button><button id="redoBtn" class="secondary" aria-label="重做" title="重做（⌘⇧Z / Ctrl+Shift+Z）" disabled>↷</button></div>
         <div class="toolbar-module" aria-label="适合屏幕"><button id="fitBtn" class="secondary">适合屏幕</button></div>
         <div class="toolbar-module" aria-label="恢复默认设置"><button id="resetBtn" class="secondary">恢复默认设置</button></div>
         <div class="toolbar-module" aria-label="关联高亮"><button id="highlightBtn" class="secondary">打开关联高亮</button></div>
@@ -539,10 +546,11 @@ const STORAGE_KEY = 'ousheng-simple-timeline-v1';
 let selected = null;
 let activeLineTitleEdit = null;
 const V6_STORAGE='arhk-v6-layout-relations';
+let editHistory=null,historyQueued=false,historyGesture=false,autoFitRunning=false;
 let extras=(()=>{try{return JSON.parse(localStorage.getItem(V6_STORAGE))||{}}catch(e){return {}}})();
 extras.layouts ||= {};extras.groups ||= [];
 if(!Array.isArray(extras.suppressedSameDate))extras.suppressedSameDate=[];
-function persistExtras(){localStorage.setItem(V6_STORAGE,JSON.stringify(extras));}
+function persistExtras(){localStorage.setItem(V6_STORAGE,JSON.stringify(extras));queueHistoryCommit();}
 let state=loadState();
 if(applyV313BusinessMigration(state,extras)){localStorage.setItem(STORAGE_KEY,JSON.stringify(state));persistExtras();}
 const AUTO_FIT_GAP=28; // 至少保留约两个虚线点的视觉间距
@@ -554,7 +562,12 @@ function autoFitCardWidth(){
  const font=Number(document.getElementById('fontRange')?.value)||14;
  return Math.max(156,Math.min(240,Math.round(150+font*3)));
 }
-function v313TextWidth(text,fontPx){
+let textMeasureContext;
+function v313TextWidth(text,fontPx,weight=650){
+ if(typeof document!=='undefined'){
+  textMeasureContext ||= document.createElement('canvas').getContext('2d');
+  if(textMeasureContext){textMeasureContext.font=`${weight} ${fontPx}px ${getComputedStyle(document.body).fontFamily}`;return textMeasureContext.measureText(String(text||'')).width;}
+ }
  return [...String(text||'')].reduce((width,char)=>width+(/[\u2e80-\u9fff\uf900-\ufaff]/u.test(char)?fontPx:/[A-Za-z0-9]/.test(char)?fontPx*.58:fontPx*.72),0);
 }
 function balancedTitleLines(title,maxWidth,fontPx){
@@ -571,7 +584,7 @@ function balancedTitleLines(title,maxWidth,fontPx){
   return lines;
  };
  const limit=Math.max(fontPx,Number(maxWidth)||fontPx);
- for(let count=2;count<=chars.length;count++){const lines=split(count);if(lines.every(line=>v313TextWidth(line,fontPx)<=limit+.01))return lines;}
+ for(let count=1;count<=chars.length;count++){const lines=split(count);if(lines.every(line=>v313TextWidth(line,fontPx)<=limit+.01))return lines;}
  return chars;
 }
 function v313AvailableCardWidth(line,item,xmap,cap){
@@ -580,12 +593,12 @@ function v313AvailableCardWidth(line,item,xmap,cap){
  const nearest=distances.length?Math.min(...distances)-16:Number(cap)||156;
  return Math.max(110,Math.min(Number(cap)||156,Math.floor(nearest)));
 }
-function v313AutoFitCardLayout(item,line,xmap,widthOverride){
+function v313AutoFitCardLayout(item,line,xmap,widthOverride,insets=18){
  const font=Number(document.getElementById('fontRange')?.value)||14,cap=Number(widthOverride)||autoFitCardWidth();
- const maxWidth=v313AvailableCardWidth(line,item,xmap,cap),lines=balancedTitleLines(item.title,Math.max(font,maxWidth-20),font);
+ const maxWidth=v313AvailableCardWidth(line,item,xmap,cap),lines=balancedTitleLines(item.title,Math.max(font,maxWidth-insets),font);
  const titleWidth=Math.max(...lines.map(line=>v313TextWidth(line,font))),meta=`${displayNodeId(line.id,item.id)} · ${item.status||''}`;
- const desired=Math.ceil(Math.max(titleWidth,v313TextWidth(meta,font*.86))+20);
- return {width:Math.max(110,Math.min(maxWidth,desired)),lines};
+ const desired=Math.ceil(Math.max(titleWidth,v313TextWidth(meta,font,400))+insets+.5);
+ return {width:desired,lines};
 }
 function autoFitDateIntervals(dateKeys,minGap){
  const index=new Map(dateKeys.map((date,i)=>[date,i])),intervals=Array(Math.max(0,dateKeys.length-1)).fill(8),constraints=[];
@@ -735,7 +748,7 @@ function loadState(){
   } catch(e){}
   return structuredClone({lines: DEFAULT_DATA});
 }
-function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); if(window.queueCloudSave) window.queueCloudSave(); }
+function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); if(window.queueCloudSave) window.queueCloudSave(); queueHistoryCommit(); }
 function deepClone(obj){ return JSON.parse(JSON.stringify(obj)); }
 function statusClass(s){
   if(s==='已完成') return 'status-complete';
@@ -835,7 +848,9 @@ function render(){
       circle.onclick=choose;circle.onkeydown=e=>{if(e.key==='Enter')choose();};sec.appendChild(circle);
       for(const item of items){
         const card=document.createElement('div');card.className='task-card timeline-task-card';card.tabIndex=0;card.dataset.line=line.id;card.dataset.id=item.id;card.dataset.anchor=xmap[date];card.dataset.place=item.placement==='above'?'above':'below';
-        const saved=extras.layouts[nodeKey(line.id,item.id)],autoLayout=document.body.classList.contains('auto-fit')?v313AutoFitCardLayout(item,line,xmap,saved?.width):null;
+        sec.appendChild(card);
+        const cardStyle=getComputedStyle(card),insets=['paddingLeft','paddingRight','borderLeftWidth','borderRightWidth'].reduce((sum,key)=>sum+(parseFloat(cardStyle[key])||0),0);
+        const saved=extras.layouts[nodeKey(line.id,item.id)],autoLayout=document.body.classList.contains('auto-fit')&&!saved?v313AutoFitCardLayout(item,line,xmap,undefined,insets):null;
         const w=saved?.width||autoLayout?.width||156;
         card.style.width=w+'px';card.style.left=Math.max(LEFT+12,saved?saved.left+(Number.isFinite(saved.anchorX)?xmap[date]-saved.anchorX:0):xmap[date]-w/2)+'px';
         if(saved){card.dataset.manual='true';card.style.top=saved.top+'px';if(saved.height)card.style.minHeight=saved.height+'px';}
@@ -1357,6 +1372,51 @@ function restoreView(view={}){
  const collapsed=!!view.editorCollapsed,b=document.getElementById('edgeToggle');b.textContent=collapsed?'▶':'◀';b.setAttribute('aria-label',collapsed?'展开编辑栏':'收起编辑栏');
  applyZoom(false);
 }
+function historySnapshot(){
+ const {view:ignoredView,autoFitProfile:ignoredProfile,lineOrder:ignoredOrder,...savedExtras}=extras;
+ const {editorCollapsed:ignoredCollapsed,...view}=readView();
+ return JSON.stringify({state,extras:savedExtras,view,autoFitProfile,lineOrder:[...lineOrder]});
+}
+function updateHistoryButtons(){
+ document.getElementById('undoBtn').disabled=!editHistory?.undo.length||autoFitRunning;
+ document.getElementById('redoBtn').disabled=!editHistory?.redo.length||autoFitRunning;
+}
+function commitHistory(){
+ if(!editHistory||historyGesture||autoFitRunning)return;
+ const next=historySnapshot();
+ if(next!==editHistory.current){
+  editHistory.undo.push(editHistory.current);
+  if(editHistory.undo.length>50)editHistory.undo.shift();
+  editHistory.current=next;editHistory.redo=[];
+ }
+ updateHistoryButtons();
+}
+function queueHistoryCommit(){
+ if(!editHistory||historyQueued)return;
+ historyQueued=true;
+ queueMicrotask(()=>{historyQueued=false;commitHistory();});
+}
+function restoreHistory(snapshot){
+ const restored=JSON.parse(snapshot),collapsed=document.body.classList.contains('editor-collapsed');
+ hideNoteTooltip();activeLineTitleEdit=null;associationMode=false;associationSelection.clear();
+ if(renderFrame){cancelAnimationFrame(renderFrame);renderFrame=0;}
+ state=restored.state;extras=restored.extras;autoFitProfile=restored.autoFitProfile;
+ lineOrder.splice(0,lineOrder.length,...restored.lineOrder);
+ extras.lineOrder=[...lineOrder];extras.autoFitProfile=autoFitProfile;
+ extras.view={...restored.view,editorCollapsed:collapsed};
+ restoreView(extras.view);initEditorLines();clearSelection();resetNodeForm();render();
+ editHistory.current=historySnapshot();saveState();persistExtras();updateHistoryButtons();
+}
+function undoEdit(){
+ if(autoFitRunning||historyGesture)return;
+ commitHistory();if(!editHistory.undo.length)return;
+ editHistory.redo.push(editHistory.current);restoreHistory(editHistory.undo.pop());
+}
+function redoEdit(){
+ if(autoFitRunning||historyGesture)return;
+ commitHistory();if(!editHistory.redo.length)return;
+ editHistory.undo.push(editHistory.current);restoreHistory(editHistory.redo.pop());
+}
 function exportJson(){
  const backup={...state,formatVersion:4,extras:{layouts:extras.layouts,groups:extras.groups,suppressedSameDate:extras.suppressedSameDate,laneGaps:extras.laneGaps,autoFitProfile,businessMigrationVersion:extras.businessMigrationVersion},view:readView()};
  saveBlob(new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}),'ARHK-Timeline.json');
@@ -1377,7 +1437,7 @@ function validateBackup(data){
  if(!layouts||typeof layouts!=='object'||Array.isArray(layouts)||!Array.isArray(groups)||!Array.isArray(suppressedSameDate))throw new Error('布局或关联格式无效');
  for(const [key,v] of Object.entries(layouts)){
    if(!keys.has(key))continue;
-   if(!v||!['left','top','width'].every(k=>Number.isFinite(v[k]))||v.left<0||v.top<0||v.width<110||Math.max(v.left,v.top,v.width)>100000||(v.height!==undefined&&(!Number.isFinite(v.height)||v.height<0||v.height>100000))||(v.anchorX!==undefined&&!Number.isFinite(v.anchorX)))throw new Error('卡片布局无效：'+key);
+   if(!v||!['left','top','width'].every(k=>Number.isFinite(v[k]))||v.left<0||v.top<0||v.width<20||Math.max(v.left,v.top,v.width)>100000||(v.height!==undefined&&(!Number.isFinite(v.height)||v.height<0||v.height>100000))||(v.anchorX!==undefined&&!Number.isFinite(v.anchorX)))throw new Error('卡片布局无效：'+key);
  }
  if(groups.some(g=>!Array.isArray(g)||g.some(k=>typeof k!=='string')))throw new Error('关联格式无效');
  if(suppressedSameDate.some(pair=>typeof pair!=='string'||pair.split('|').length!==2))throw new Error('解除关联格式无效');
@@ -1442,7 +1502,7 @@ document.getElementById('pickColorBtn').addEventListener('click',async()=>{
 function applyZoom(persist=true){
  currentZoom=Number(document.getElementById('zoomRange').value)/100;
  timelineWrap.style.zoom=currentZoom;document.getElementById('zoomValue').textContent=Math.round(currentZoom*100)+'%';
- if(persist)saveView();scheduleConnectors();
+ if(persist)saveView();if(document.body.classList.contains('auto-fit'))scheduleRender();else scheduleConnectors();
 }
 document.getElementById('spacingRange').addEventListener('input',e=>{document.getElementById('spacingValue').textContent=e.target.value;saveView();scheduleRender();});
 document.getElementById('zoomRange').addEventListener('input',()=>applyZoom());
@@ -1451,14 +1511,17 @@ document.getElementById('fitBtn').onclick=()=>{
  document.getElementById('zoomRange').value=Math.max(5,Math.floor(Math.min(1,available/timelineWrap.offsetWidth)*100/5)*5);applyZoom();
 };
 async function autoFitLayout(){
+ if(autoFitRunning)return;
+ commitHistory();autoFitRunning=true;updateHistoryButtons();document.body.classList.add('auto-fitting');
  const button=document.getElementById('autoFitBtn'),buttonLabel=button.textContent;button.disabled=true;
+ try{
  document.body.classList.add('auto-fit');
  const ids=['fontRange','axisFontRange','nodeFontRange'],currentBody=Math.max(...ids.map(id=>Number(document.getElementById(id).value)||14)),currentRail=Math.max(14,Number(document.getElementById('lineFontRange').value)||14);
  const candidates=(base)=>[...new Set([base,30])];
  const bodies=candidates(currentBody),rails=candidates(currentRail),widths=[300,420,520],spacings=[124,160,200,240],gaps=[28,40],modes=['original','compact'];
  const pageW=4961-188,pageH=3508-214-94,pageRatio=420/297;
  const setFonts=(body,rail)=>{ids.forEach(id=>document.getElementById(id).value=body);document.getElementById('lineFontRange').value=rail;document.documentElement.style.setProperty('--ui-font',body+'px');document.documentElement.style.setProperty('--axis-font',body+'px');document.documentElement.style.setProperty('--node-font',body+'px');document.documentElement.style.setProperty('--line-font',rail+'px');document.getElementById('fontValue').textContent=body+'px';document.getElementById('axisFontValue').textContent=body+'px';document.getElementById('nodeFontValue').textContent=body+'px';document.getElementById('lineFontValue').textContent=rail+'px';};
- let best=null,checked=0;extras.layouts={};
+ let best=null,checked=0;extras.layouts={};extras.laneGaps={};
  const total=bodies.length*rails.length*widths.length*spacings.length*gaps.length*modes.length;
  // Score every realistic combination using the same A3 page geometry as export.
  // First maximize the weakest print-size target, then prefer a page-like aspect ratio.
@@ -1480,10 +1543,15 @@ async function autoFitLayout(){
  document.getElementById('spacingRange').value=best.spacing;document.getElementById('spacingValue').textContent=best.spacing;
  extras.layouts={};saveView();render();scheduleConnectors();
  const finalMetrics=measureA3FontSizes(pageW,pageH);
- button.disabled=false;button.textContent=buttonLabel;
  alert(finalMetrics.taskPt>=10&&finalMetrics.railPt>=14
    ? `一键自适应完成。A3横向预计任务文字最小 ${finalMetrics.taskPt.toFixed(1)} pt，左侧线路标题 ${finalMetrics.railPt.toFixed(1)} pt。`
    : `已按A3横向纸面字号优先完成排布，但受当前内容总量限制，预计任务文字最小 ${finalMetrics.taskPt.toFixed(1)} pt（目标≥10 pt），左侧线路标题 ${finalMetrics.railPt.toFixed(1)} pt（目标≥14 pt）。可拖动泳道底边继续调整上下空间，或分批打印。`);
+ }catch(error){
+  if(editHistory)restoreHistory(editHistory.current);
+  alert('自适应失败，已恢复原布局：'+error.message);
+ }finally{
+  autoFitRunning=false;document.body.classList.remove('auto-fitting');button.disabled=false;button.textContent=buttonLabel;commitHistory();
+ }
 }
 document.getElementById('autoFitBtn').onclick=autoFitLayout;
 
@@ -1594,13 +1662,31 @@ async function exportPptx(){
    slide.addText(document.querySelector('.toolbar-title .english')?.textContent.trim()||'ARHK Timeline',{x:7.7,y:titleY+.02,w:2.3,h:.3,fontFace:'Aptos',fontSize:15,color:'71717A',margin:0});
    slide.addText(document.getElementById('appVersion')?.textContent.trim()||'',{x:10.1,y:titleY+.03,w:1.0,h:.28,fontSize:11,color:'8A8A90',margin:0});
    const root=document.getElementById('timelineWrap'),rw=root.offsetWidth||1,rh=root.offsetHeight||1;
-   const top=.9,scale=Math.min((W-margin*2)/rw,(H-top-.25)/rh),ox=(W-rw*scale)/2;
-   const colorHex=c=>String(c||'#7f8a98').replace('#','').toUpperCase();
-   const addText=(text,x,y,w,h,opts={})=>slide.addText(String(text||''),{x:ox+x*scale,y:top+y*scale,w:Math.max(.05,w*scale),h:Math.max(.05,h*scale),fontFace:'Aptos',fontSize:Math.max(9,(opts.font||14)*scale*72/96),color:opts.color||'374151',bold:!!opts.bold,margin:.02,breakLine:false,fit:'shrink'});
-   root.querySelectorAll('.month-label').forEach(el=>{const x=parseFloat(el.style.left)||0;addText(el.textContent,x,0,120,32,{font:parseFloat(getComputedStyle(el).fontSize)||14,bold:true,color:'374151'});});
-   root.querySelectorAll('.rail-row').forEach(el=>{const r=el.getBoundingClientRect(),rr=root.getBoundingClientRect();const y=(r.top-rr.top)/(rr.width/rw);addText(el.querySelector('.rail-line-name')?.textContent||'',12,y/rw*rw,220,r.height,{font:parseFloat(getComputedStyle(el).fontSize)||14,bold:true,color:'374151'});});
-   root.querySelectorAll('.timeline-task-card').forEach(card=>{const x=parseFloat(card.style.left)||0,y=parseFloat(card.style.top)||0,w=card.offsetWidth,h=card.offsetHeight;const bg=getComputedStyle(card).backgroundColor.match(/\d+/g)||[255,255,255];const rgb=bg.map(Number).slice(0,3).map(v=>v.toString(16).padStart(2,'0')).join('').toUpperCase();slide.addShape(pptx.ShapeType.roundRect,{x:ox+x*scale,y:top+y*scale,w:Math.max(.18,w*scale),h:Math.max(.18,h*scale),rectRadius:.08,fill:{color:rgb||'FFFFFF',transparency:8},line:{color:'D7DCE5',width:.7}});addText(card.querySelector('.task-name')?.textContent||'',x+6,y+5,w-12,Math.max(16,h*.6),{font:parseFloat(getComputedStyle(card).fontSize)||14,bold:true,color:'1F2937'});addText(card.querySelector('.task-meta')?.textContent||'',x+6,y+h*.55,w-12,Math.max(12,h*.35),{font:12,color:'6B7280'});});
-   root.querySelectorAll('.node').forEach(node=>{const x=parseFloat(node.style.left)||0,y=parseFloat(node.style.top)||0,s=node.offsetWidth||36;const bg=getComputedStyle(node).backgroundColor.match(/\d+/g)||[127,138,152];const rgb=bg.map(Number).slice(0,3).map(v=>v.toString(16).padStart(2,'0')).join('').toUpperCase();slide.addShape(pptx.ShapeType.ellipse,{x:ox+x*scale,y:top+y*scale,w:s*scale,h:s*scale,fill:{color:rgb},line:{color:'FFFFFF',width:1}});addText(node.textContent,x,y+5,s,s-8,{font:parseFloat(getComputedStyle(node).fontSize)||14,bold:true,color:'FFFFFF'});});
+   const contentTop=214*W/4961,contentBottom=94*W/4961;
+   const scale=Math.min((W-188*W/4961)/rw,(H-contentTop-contentBottom)/rh),ox=(W-rw*scale)/2,top=contentTop+(H-contentTop-contentBottom-rh*scale)/2;
+   const rgbHex=value=>{const parts=String(value).match(/[\d.]+/g)||[127,138,152];return parts.slice(0,3).map(v=>Math.round(Number(v)).toString(16).padStart(2,'0')).join('').toUpperCase();};
+   const addText=(text,x,y,w,h,opts={})=>slide.addText(String(text||''),{x:ox+x*scale,y:top+y*scale,w:Math.max(.01,w*scale),h:Math.max(.01,h*scale),fontFace:'PingFang SC',fontSize:(opts.font||14)*scale*72,color:opts.color||'374151',bold:!!opts.bold,margin:0,paraSpaceAfter:0,wrap:false,align:opts.align||'left',valign:'mid'});
+   // Preserve browser line breaks as separate editable lines; slide apps must not reflow tight cards.
+   const addDomText=el=>{
+    const s=getComputedStyle(el),rr=root.getBoundingClientRect(),zoom=rr.width/rw,lines=[];
+    const walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);let textNode;
+    while(textNode=walker.nextNode())for(let offset=0;offset<textNode.length;){
+     const char=String.fromCodePoint(textNode.textContent.codePointAt(offset)),range=document.createRange();range.setStart(textNode,offset);offset+=char.length;range.setEnd(textNode,offset);
+     const rect=range.getBoundingClientRect();if(!rect.width||char==='\n')continue;
+     let line=lines.find(line=>Math.abs(line.y-rect.top)<Math.max(.01,zoom*.5));
+     if(!line){line={text:'',x:rect.left,y:rect.top,right:rect.right,height:rect.height};lines.push(line);}
+     line.text+=char;line.right=Math.max(line.right,rect.right);
+    }
+    for(const line of lines)addText(line.text,(line.x-rr.left)/zoom,(line.y-rr.top)/zoom,(line.right-line.x)/zoom,line.height/zoom,{font:parseFloat(s.fontSize),bold:Number(s.fontWeight)>=600,color:rgbHex(s.color)});
+   };
+   root.querySelectorAll('.axis').forEach(el=>{const r=localRect(el);slide.addShape(pptx.ShapeType.rect,{x:ox+r.left*scale,y:top+r.top*scale,w:r.width*scale,h:r.height*scale,line:{transparency:100},fill:{color:rgbHex(getComputedStyle(el).backgroundColor)}});});
+   const connectors=root.querySelector('#crossSvg').cloneNode(true);
+   [...connectors.querySelectorAll('path')].forEach((path,i)=>{const original=root.querySelectorAll('#crossSvg path')[i],s=getComputedStyle(original);for(const key of ['stroke','stroke-width','stroke-dasharray','fill','opacity'])path.style.setProperty(key,s.getPropertyValue(key));});
+   connectors.setAttribute('xmlns','http://www.w3.org/2000/svg');connectors.setAttribute('width',rw);connectors.setAttribute('height',rh);
+   slide.addImage({data:'data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(new XMLSerializer().serializeToString(connectors)))),x:ox,y:top,w:rw*scale,h:rh*scale});
+   root.querySelectorAll('.month-label,.rail-line-name,.pending-label').forEach(addDomText);
+   root.querySelectorAll('.timeline-task-card,.pending-tag').forEach(card=>{const r=localRect(card),s=getComputedStyle(card);slide.addShape(pptx.ShapeType.roundRect,{x:ox+r.left*scale,y:top+r.top*scale,w:r.width*scale,h:r.height*scale,rectRadius:Math.min(.08,r.height*scale/4),fill:{color:rgbHex(s.backgroundColor)},line:{color:rgbHex(s.borderColor),width:.7}});if(card.matches('.pending-tag'))addDomText(card);else card.querySelectorAll('.task-name,.task-meta').forEach(addDomText);});
+   root.querySelectorAll('.node').forEach(node=>{const r=localRect(node),s=getComputedStyle(node);const related=document.body.classList.contains('highlighted')&&(node.classList.contains('related-node')||node.classList.contains('explicit-related'));slide.addShape(pptx.ShapeType.ellipse,{x:ox+r.left*scale,y:top+r.top*scale,w:r.width*scale,h:r.height*scale,fill:{color:rgbHex(s.backgroundColor)},line:{color:related?'EAB308':'FFFFFF',width:related?2:1}});addText(node.textContent,r.left,r.top,r.width,r.height,{font:parseFloat(s.fontSize),bold:true,color:rgbHex(s.color),align:'center'});});
    slide.addText('颜色图例',{x:11.7,y:.24,w:.8,h:.22,fontSize:10,bold:true,color:'4B5563',margin:0});
    const legend=[['已完成','27AE60'],['进行中','2F80ED'],['未开始','7F8A98'],['待确认／日期待定','E0A800'],['必须完成','D92D20'],['暂停','9C27B0']];legend.forEach((it,i)=>{const x=12.55+(i%3)*1.25,y=.22+Math.floor(i/3)*.32;slide.addShape(pptx.ShapeType.ellipse,{x,y:y+.03,w:.09,h:.09,fill:{color:it[1]},line:{color:it[1]}});slide.addText(it[0],{x:x+.16,y,w:1.05,h:.18,fontSize:8,color:'4B5563',margin:0});});
    await pptx.writeFile({fileName:'ARHK-Timeline-A3.pptx'});
@@ -1691,6 +1777,23 @@ document.addEventListener('click',event=>{
 const graphResizeObserver=new ResizeObserver(scheduleConnectors);
 graphResizeObserver.observe(document.querySelector('.board'));
 graphResizeObserver.observe(timelineWrap);
+
+editHistory={current:historySnapshot(),undo:[],redo:[]};
+document.getElementById('undoBtn').onclick=undoEdit;
+document.getElementById('redoBtn').onclick=redoEdit;
+document.addEventListener('keydown',event=>{
+ if(!(event.metaKey||event.ctrlKey)||event.altKey||event.key.toLowerCase()!=='z')return;
+ if(event.target.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"]),[role="textbox"]'))return;
+ event.preventDefault();event.shiftKey?redoEdit():undoEdit();
+});
+document.addEventListener('pointerdown',event=>{
+ if(!event.target.matches('input[type="range"]'))return;
+ commitHistory();historyGesture=true;
+});
+const finishHistoryGesture=()=>{if(historyGesture){historyGesture=false;commitHistory();}};
+window.addEventListener('pointerup',finishHistoryGesture);
+window.addEventListener('pointercancel',finishHistoryGesture);
+window.addEventListener('blur',finishHistoryGesture);
 
 </script>
 
