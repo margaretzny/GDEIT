@@ -137,6 +137,9 @@ body{padding-top:0}
 #leftResize{position:absolute;right:-5px;top:0;bottom:0;width:10px;cursor:col-resize;z-index:15}
 #leftResize:hover,#leftResize.dragging{background:#bfdbfe88}
 #leftResize:hover:after{content:'↔';position:absolute;top:15px;left:-10px;color:#2563eb;background:white;border:1px solid #93c5fd;border-radius:8px;padding:3px 5px}
+.lane-resize-handle,.rail-lane-resize{position:absolute;left:0;right:0;bottom:-7px;height:14px;z-index:30;cursor:row-resize;touch-action:none}
+.lane-resize-handle:hover,.rail-lane-resize:hover{background:linear-gradient(transparent 5px,#8bbafa 5px,#8bbafa 8px,transparent 8px)}
+.lane-resize-handle:hover:after,.rail-lane-resize:hover:after{content:'↕';position:absolute;left:50%;top:-8px;transform:translateX(-50%);padding:0 6px;border:1px solid #93c5fd;border-radius:8px;background:#fff;color:#2563eb;font-size:13px;line-height:18px}
 body.editor-collapsed .app{grid-template-columns:minmax(0,1fr)}
 body.editor-collapsed .side{display:none}
 .side{top:128px;height:calc(100vh - 144px)}
@@ -380,7 +383,7 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
 <div class="app">
   <div class="board">
     <div class="toolbar" id="mainToolbar">
-      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.11</span></h1></div>
+      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.12</span></h1></div>
       <div class="toolbar-primary">
         <div class="toolbar-module" aria-label="导入导出"><button class="secondary toolbar-menu-toggle" data-menu="fileMenu">导入/导出</button><div class="toolbar-menu" id="fileMenu">
           <label class="btn secondary" for="importFile">导入JSON</label><input id="importFile" type="file" accept="application/json" />
@@ -393,8 +396,6 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
           <label class="range-control">圆标字号<input id="nodeFontRange" type="range" min="10" max="30" value="14" step="1"><b id="nodeFontValue">14px</b></label>
           <label class="range-control">节点间距<input id="spacingRange" type="range" min="72" max="460" value="105" step="1"><b id="spacingValue">105</b></label>
           <label class="range-control">页面缩放<input id="zoomRange" type="range" min="5" max="160" value="100" step="5"><b id="zoomValue">100%</b></label>
-          <label class="range-control">调整泳道<select id="laneGapLine" aria-label="选择要调整的泳道"></select></label>
-          <label class="range-control">泳道上下空间<input id="laneGapRange" type="range" min="14" max="72" value="28" step="2"><b id="laneGapValue">28px</b></label>
           <span class="auto-fit-note">保留字号，重新紧凑排布全部节点</span><button id="autoFitBtn" class="secondary">一键自适应</button>
         </div></div>
         <div class="toolbar-module" aria-label="节点设置"><button id="nodeMenuBtn" class="secondary">节点设置</button></div>
@@ -481,6 +482,7 @@ extras.layouts ||= {};extras.groups ||= [];
 if(!Array.isArray(extras.suppressedSameDate))extras.suppressedSameDate=[];
 function persistExtras(){localStorage.setItem(V6_STORAGE,JSON.stringify(extras));}
 const AUTO_FIT_GAP=28; // 至少保留约两个虚线点的视觉间距
+const LANE_GAP_MIN=8,LANE_GAP_MAX=200;
 extras.laneGaps ||= {};
 let autoFitProfile=extras.autoFitProfile||null;
 function autoFitCardWidth(){
@@ -771,6 +773,8 @@ function render(){
     for(const item of line.pending||[]){const tag=document.createElement('span');tag.className='pending-tag';tag.textContent=displayNodeId(line.id,item.id)+' '+item.title;tag.onclick=()=>selectNode(line.id,item.id,true);pBox.appendChild(tag);}
     if(!line.pending?.length){const empty=document.createElement('span');empty.className='pending-label';empty.textContent='无';pBox.appendChild(empty);}
     sec.appendChild(pBox);sizeSection(sec);
+    const laneHandle=document.createElement('div');laneHandle.className='lane-resize-handle';
+    bindLaneResizeHandle(laneHandle,line.id);sec.appendChild(laneHandle);
   }
   fitContentBounds();renderLeftRail();updateAssociationUI();scheduleConnectors();
 }
@@ -817,6 +821,41 @@ function sizeSection(sec){
  const pending=sec.querySelector('.pending-box');
  if(pending){pending.style.top=(maxBottom+20)+'px';pending.style.bottom='auto';}
  sec.style.height=(maxBottom+32+(pending?.offsetHeight||32))+'px';
+}
+function bindLaneResizeHandle(handle,lineId){
+ handle.dataset.line=lineId;handle.title='拖动调整这条泳道的上下空间';
+ handle.setAttribute('role','separator');handle.setAttribute('aria-label','调整'+visibleLineTitle(state.lines.find(line=>line.id===lineId))+'的上下空间');
+ handle.setAttribute('aria-orientation','horizontal');handle.setAttribute('aria-valuemin',LANE_GAP_MIN);
+ handle.setAttribute('aria-valuemax',LANE_GAP_MAX);handle.setAttribute('aria-valuenow',laneGapFor(lineId));handle.tabIndex=0;
+ handle.addEventListener('pointerdown',event=>{
+  if(event.button!==0)return;
+  event.preventDefault();event.stopPropagation();
+  const pointerId=event.pointerId,startY=event.clientY,startGap=laneGapFor(lineId);
+  const previousCursor=document.body.style.cursor,previousSelection=document.body.style.userSelect;
+  document.body.classList.add('lane-resizing');document.body.style.cursor='row-resize';document.body.style.userSelect='none';
+  let changed=false;
+  const move=ev=>{
+   if(ev.pointerId!==pointerId)return;
+   ev.preventDefault();
+   const next=Math.max(LANE_GAP_MIN,Math.min(LANE_GAP_MAX,Math.round(startGap+(ev.clientY-startY)/(2*(currentZoom||1)))));
+   if(next===laneGapFor(lineId))return;
+   extras.laneGaps[lineId]=next;changed=true;scheduleRender();
+  };
+  const finish=ev=>{
+   if(ev.pointerId!==pointerId)return;
+   window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',finish);window.removeEventListener('pointercancel',finish);
+   document.body.classList.remove('lane-resizing');document.body.style.cursor=previousCursor;document.body.style.userSelect=previousSelection;
+   if(changed){persistExtras();if(renderFrame){cancelAnimationFrame(renderFrame);renderFrame=0;}render();}
+  };
+  window.addEventListener('pointermove',move,{passive:false});window.addEventListener('pointerup',finish);window.addEventListener('pointercancel',finish);
+ });
+ handle.addEventListener('keydown',event=>{
+  if(event.key!=='ArrowUp'&&event.key!=='ArrowDown')return;
+  event.preventDefault();event.stopPropagation();
+  const step=event.shiftKey?12:4;
+  extras.laneGaps[lineId]=Math.max(LANE_GAP_MIN,Math.min(LANE_GAP_MAX,laneGapFor(lineId)+(event.key==='ArrowDown'?step:-step)));
+  persistExtras();scheduleRender();
+ });
 }
 function fitContentBounds(){
  const right=Math.max(timelineWrap.offsetWidth-24,...[...sectionsEl.querySelectorAll('.timeline-task-card')].map(c=>parseFloat(c.style.left)+c.offsetWidth+24));
@@ -975,10 +1014,12 @@ function renderLeftRail(){
    pencil.setAttribute('aria-label','修改'+visibleLineTitle(line));
    pencil.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();beginLineTitleEdit(line,row);});
    row.appendChild(pencil);
+   const laneHandle=document.createElement('div');laneHandle.className='rail-lane-resize';
+   bindLaneResizeHandle(laneHandle,line.id);row.appendChild(laneHandle);
    row.addEventListener('dblclick',e=>{if(e.target.closest('button,input'))return;beginLineTitleEdit(line,row);});
    let startY=0,dragging=false;
    row.addEventListener('pointerdown',e=>{
-     if(e.button!==0||e.target.closest('button,input'))return;
+     if(e.button!==0||e.target.closest('button,input,.rail-lane-resize'))return;
      startY=e.clientY;dragging=false;
      row.setPointerCapture(e.pointerId);
    });
@@ -1245,7 +1286,7 @@ function validateBackup(data){
  }
  if(groups.some(g=>!Array.isArray(g)||g.some(k=>typeof k!=='string')))throw new Error('关联格式无效');
  if(suppressedSameDate.some(pair=>typeof pair!=='string'||pair.split('|').length!==2))throw new Error('解除关联格式无效');
- if(!laneGaps||typeof laneGaps!=='object'||Array.isArray(laneGaps)||Object.entries(laneGaps).some(([id,gap])=>!lineOrder.includes(id)||!Number.isFinite(gap)||gap<14||gap>72))throw new Error('泳道间距设置无效');
+ if(!laneGaps||typeof laneGaps!=='object'||Array.isArray(laneGaps)||Object.entries(laneGaps).some(([id,gap])=>!lineOrder.includes(id)||!Number.isFinite(gap)||gap<LANE_GAP_MIN||gap>LANE_GAP_MAX))throw new Error('泳道间距设置无效');
  const profile=data.extras?.autoFitProfile||null;
  if(profile&&(!Number.isFinite(profile.cardWidth)||profile.cardWidth<156||profile.cardWidth>520||!Number.isFinite(profile.spacing)||profile.spacing<72||profile.spacing>460||!Number.isFinite(profile.laneGap)||profile.laneGap<14||profile.laneGap>72||!['original','alternate','compact'].includes(profile.placementMode)))throw new Error('自适应布局设置无效');
  return {layouts:Object.fromEntries(Object.entries(layouts).filter(([k])=>keys.has(k))),groups:groups.map(g=>[...new Set(g.filter(k=>keys.has(k)))]).filter(g=>g.length>1),suppressedSameDate:suppressedSameDate.filter(pair=>pair.split('|').every(k=>keys.has(k))),laneGaps,autoFitProfile:profile};
@@ -1271,10 +1312,6 @@ function initEditorLines(){
   const current=sel.value;
   sel.innerHTML = lineOrder.map((lineId,index)=>`<option value="${lineId}">${'ABCDE'[index]}线</option>`).join('');
   if(lineOrder.includes(current))sel.value=current;
-  const lane=document.getElementById('laneGapLine'),previous=lane.value;
-  lane.innerHTML=lineOrder.map(lineId=>{const line=state.lines.find(item=>item.id===lineId);return `<option value="${lineId}">${escapeHtml(visibleLineTitle(line)||lineId)}</option>`;}).join('');
-  if(lineOrder.includes(previous))lane.value=previous;
-  const gap=Number(extras.laneGaps?.[lane.value])||AUTO_FIT_GAP;document.getElementById('laneGapRange').value=gap;document.getElementById('laneGapValue').textContent=gap+'px';
 }
 window.addEventListener('resize',scheduleConnectors,{passive:true});
 document.getElementById('saveBtn').onclick = ()=>{ if(selected?.type==='new') saveNew(); else saveCurrent(); };
@@ -1313,8 +1350,6 @@ function applyZoom(persist=true){
  if(persist)saveView();scheduleConnectors();
 }
 document.getElementById('spacingRange').addEventListener('input',e=>{document.getElementById('spacingValue').textContent=e.target.value;saveView();scheduleRender();});
-document.getElementById('laneGapLine').addEventListener('change',e=>{const gap=Number(extras.laneGaps?.[e.target.value])||autoFitProfile?.laneGap||AUTO_FIT_GAP;document.getElementById('laneGapRange').value=gap;document.getElementById('laneGapValue').textContent=gap+'px';});
-document.getElementById('laneGapRange').addEventListener('input',e=>{const lineId=document.getElementById('laneGapLine').value,gap=Number(e.target.value);extras.laneGaps[lineId]=gap;document.getElementById('laneGapValue').textContent=gap+'px';persistExtras();scheduleRender();});
 document.getElementById('zoomRange').addEventListener('input',()=>applyZoom());
 document.getElementById('fitBtn').onclick=()=>{
  const available=document.querySelector('.board').clientWidth-24;
@@ -1348,14 +1383,12 @@ async function autoFitLayout(){
  setFonts(best.body,best.rail);
  autoFitProfile={cardWidth:best.cardWidth,spacing:best.spacing,laneGap:best.laneGap,placementMode:best.placementMode,compactDates:true};
  document.getElementById('spacingRange').value=best.spacing;document.getElementById('spacingValue').textContent=best.spacing;
- const selectedGap=Number(extras.laneGaps?.[document.getElementById('laneGapLine').value])||best.laneGap;
- document.getElementById('laneGapRange').value=selectedGap;document.getElementById('laneGapValue').textContent=selectedGap+'px';
  extras.layouts={};saveView();render();scheduleConnectors();
  const finalMetrics=measureA3FontSizes(pageW,pageH);
  button.disabled=false;button.textContent=buttonLabel;
  alert(finalMetrics.taskPt>=10&&finalMetrics.railPt>=14
    ? `一键自适应完成。A3横向预计任务文字最小 ${finalMetrics.taskPt.toFixed(1)} pt，左侧线路标题 ${finalMetrics.railPt.toFixed(1)} pt。`
-   : `已按A3横向纸面字号优先完成排布，但受当前内容总量限制，预计任务文字最小 ${finalMetrics.taskPt.toFixed(1)} pt（目标≥10 pt），左侧线路标题 ${finalMetrics.railPt.toFixed(1)} pt（目标≥14 pt）。可以继续调整泳道上下空间，或分批打印。`);
+   : `已按A3横向纸面字号优先完成排布，但受当前内容总量限制，预计任务文字最小 ${finalMetrics.taskPt.toFixed(1)} pt（目标≥10 pt），左侧线路标题 ${finalMetrics.railPt.toFixed(1)} pt（目标≥14 pt）。可拖动泳道底边继续调整上下空间，或分批打印。`);
 }
 document.getElementById('autoFitBtn').onclick=autoFitLayout;
 
@@ -1396,7 +1429,7 @@ async function snapshotA3(){
    for(const prop of css)dest.style.setProperty(prop,css.getPropertyValue(prop));
    dest.style.setProperty('animation','none');dest.style.setProperty('transition','none');dest.style.setProperty('caret-color','transparent');
  });
- clone.querySelectorAll('.resize-corner,#leftResize').forEach(el=>el.remove());
+ clone.querySelectorAll('.resize-corner,#leftResize,.lane-resize-handle,.rail-lane-resize').forEach(el=>el.remove());
  clone.style.zoom='1';clone.style.transform='none';clone.style.position='relative';clone.style.margin='0';clone.style.overflow='visible';
  // Extra padding includes gold glows and any text extending beyond its box.
  const heading=document.querySelector('.toolbar-title');
