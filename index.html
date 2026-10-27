@@ -377,7 +377,7 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
 <div class="app">
   <div class="board">
     <div class="toolbar" id="mainToolbar">
-      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.9</span></h1></div>
+      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.10</span></h1></div>
       <div class="toolbar-primary">
         <div class="toolbar-module" aria-label="导入导出"><button class="secondary toolbar-menu-toggle" data-menu="fileMenu">导入/导出</button><div class="toolbar-menu" id="fileMenu">
           <label class="btn secondary" for="importFile">导入JSON</label><input id="importFile" type="file" accept="application/json" />
@@ -388,7 +388,7 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
           <label class="range-control">纵轴字号<input id="lineFontRange" type="range" min="10" max="30" value="14" step="1"><b id="lineFontValue">14px</b></label>
           <label class="range-control">节点框字号<input id="fontRange" type="range" min="10" max="30" value="14" step="1"><b id="fontValue">14px</b></label>
           <label class="range-control">圆标字号<input id="nodeFontRange" type="range" min="10" max="30" value="14" step="1"><b id="nodeFontValue">14px</b></label>
-          <label class="range-control">节点间距<input id="spacingRange" type="range" min="72" max="230" value="105" step="1"><b id="spacingValue">105</b></label>
+          <label class="range-control">节点间距<input id="spacingRange" type="range" min="72" max="460" value="105" step="1"><b id="spacingValue">105</b></label>
           <label class="range-control">页面缩放<input id="zoomRange" type="range" min="5" max="160" value="100" step="5"><b id="zoomValue">100%</b></label>
           <span class="auto-fit-note">保留字号，重新紧凑排布全部节点</span><button id="autoFitBtn" class="secondary">一键自适应</button>
         </div></div>
@@ -475,7 +475,9 @@ extras.layouts ||= {};extras.groups ||= [];
 if(!Array.isArray(extras.suppressedSameDate))extras.suppressedSameDate=[];
 function persistExtras(){localStorage.setItem(V6_STORAGE,JSON.stringify(extras));}
 const AUTO_FIT_GAP=28; // 至少保留约两个虚线点的视觉间距
+let autoFitProfile=null;
 function autoFitCardWidth(){
+ if(autoFitProfile?.cardWidth)return autoFitProfile.cardWidth;
  const font=Number(document.getElementById('fontRange')?.value)||14;
  return Math.max(156,Math.min(240,Math.round(150+font*3)));
 }
@@ -1277,10 +1279,28 @@ function autoFitLayout(){
  ['fontRange','axisFontRange','lineFontRange','nodeFontRange'].forEach(id=>{const v=document.getElementById(id).value;const label=document.getElementById(id.replace('Range','Value'));if(label)label.textContent=v+'px';});
  const nodeFont=Number(document.getElementById('nodeFontRange').value)||12;
  const nodeSize=Math.max(42,nodeFont*3.8);
- const spacing=Math.max(84,Math.ceil(nodeSize+22));
- document.getElementById('spacingRange').value=Math.min(230,spacing);
+ // Evaluate real DOM layouts instead of assuming that the narrowest timeline is
+ // the best one. Wider cards reduce wrapping and can lower each swimlane's height.
+ // The score maximizes the usable A3 scale while gently favoring A3 landscape's ratio.
+ const pageRatio=420/297, candidates=[180,210,240,270,300,340,380,420];
+ const pageW=420-24,pageH=297-46;
+ let best=null;
+ extras.layouts={};
+ for(const cardWidth of candidates){
+   const spacing=Math.max(84,Math.ceil(Math.max(nodeSize+22,cardWidth+24)));
+   autoFitProfile={cardWidth,spacing};
+   document.getElementById('spacingRange').value=Math.min(460,spacing);
+   document.getElementById('spacingValue').textContent=document.getElementById('spacingRange').value;
+   render();
+   const w=Math.max(1,timelineWrap.offsetWidth),h=Math.max(1,timelineWrap.offsetHeight),ratio=w/h;
+   const scale=Math.min(pageW/w,pageH/h),ratioPenalty=Math.abs(Math.log(ratio/pageRatio));
+   const score=scale/(1+ratioPenalty*.18);
+   if(!best||score>best.score)best={cardWidth,spacing,score};
+ }
+ autoFitProfile={cardWidth:best?.cardWidth||270,spacing:best?.spacing||294};
+ document.getElementById('spacingRange').value=Math.min(460,autoFitProfile.spacing);
  document.getElementById('spacingValue').textContent=document.getElementById('spacingRange').value;
- // Rebuild card positions from the current data so the layout can be compacted safely.
+ // Rebuild once with the selected candidate so connectors and saved positions agree.
  extras.layouts={};
  saveView();
  render();
@@ -1365,7 +1385,7 @@ async function openExportPreview(){
    const result=await snapshotA3();exportImage=result.url;exportCanvas=result.canvas;
    document.getElementById('exportPreview').src=exportImage;
    const note=document.getElementById('exportNote');
-   const readable=result.fontPt>=10;
+   const readable=result.fontPt>=12;
    note.classList.toggle('export-warning',!readable);
    note.textContent=readable
      ? `标题以 ${result.titleFontPt.toFixed(0)} pt 独立排版；全部线路、待定事项、卡片及关联线已按当前布局等比例放入一张 A3 横向页面。预计最小纸面字号约 ${result.fontPt.toFixed(1)} pt，PNG 与 PDF 使用同一张画面。`
