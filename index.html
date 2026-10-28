@@ -179,7 +179,7 @@ body .section .node{z-index:15!important}
 body .timeline-task-card{z-index:12!important;position:absolute}
 body.highlighted .cross-relation{stroke:#dca10b!important;stroke-width:5!important;stroke-dasharray:7 6!important;opacity:1!important;filter:drop-shadow(0 0 3px #ffcc25) drop-shadow(0 0 4px #facc15)!important}
 body .cross-relation{opacity:.75}
-body.highlighted .related-card{border-color:#e7ac17!important;background:#fff6d5!important;box-shadow:0 0 0 2px #ffec9b,0 0 12px #ffca3280!important}
+body.highlighted .related-card{border-color:#e7ac17!important;box-shadow:0 0 0 2px #ffec9b,0 0 12px #ffca3280!important}
 /* Overlay creates the connector over cards, with glow; dashed leaders remain unobtrusive. */
 @media(max-width:850px){body .app{grid-template-columns:minmax(0,1fr)!important}body .side{position:fixed!important;right:0;top:var(--topbar-h)!important;bottom:0;height:auto!important;width:min(340px,92vw)!important;z-index:500;box-shadow:-8px 0 30px #0002}body.editor-collapsed .side{width:0!important}body .toolbar-primary{overflow-x:auto!important}}
 /* cloud setup popup */
@@ -204,7 +204,7 @@ body .app{padding-top:112px!important}
 .resize-corner.nw{left:-6px;top:-6px;cursor:nwse-resize}.resize-corner.ne{right:-6px;top:-6px;cursor:nesw-resize}.resize-corner.sw{left:-6px;bottom:-6px;cursor:nesw-resize}.resize-corner.se{right:-6px;bottom:-6px;cursor:nwse-resize}
 .timeline-task-card{height:auto}
 .timeline-task-card .task-name{overflow-wrap:anywhere}
-.timeline-task-card.manual-selected,.section .node.manual-selected{outline:3px solid #f2b414!important;box-shadow:0 0 0 6px #fff1a1,0 0 20px #fbbf2477!important;background:#fff7d1!important;color:#111827!important;z-index:90!important}
+.timeline-task-card.manual-selected,.section .node.manual-selected{outline:3px solid #f2b414!important;box-shadow:0 0 0 6px #fff1a1,0 0 20px #fbbf2477!important;color:#111827!important;z-index:90!important}
 .section .node.manual-selected{background:#f59e0b!important;color:white!important}
 .relation-panel{padding:12px;border:1px solid #f8d37e;background:#fffaf0;border-radius:12px;margin:12px 0}
 .relation-panel h3{margin:0 0 7px;font-size:15px}.relation-panel p{font-size:12px;color:#735c38;line-height:1.5}
@@ -222,7 +222,7 @@ body .relation-panel{margin:0!important;padding:12px!important;border:none!impor
 .relation-page-header{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap}
 .relation-page-header h3{margin:0;font-size:17px}
 #relateModeBtn.mode-active{background:#fff1a8!important;color:#7c5200!important;border:1px solid #efbe38!important}
-.section .node.manual-selected{position:absolute;z-index:100!important;outline:3px solid #fff4aa!important;box-shadow:0 0 0 6px #facb34,0 0 22px 8px #facc15aa!important;background:#edaa00!important;color:white!important}
+.section .node.manual-selected{position:absolute;z-index:100!important;outline:3px solid #fff4aa!important;box-shadow:0 0 0 6px #facb34,0 0 22px 8px #facc15aa!important;color:white!important}
 .timeline-task-card.manual-selected{z-index:99!important}
 /* scrolling: don't promote hundreds of static cards to composite layers */
 body .timeline-task-card:not(.dragging){will-change:auto!important}
@@ -445,6 +445,7 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
       </div>
       <div class="field"><label>详细备注</label><textarea id="f_note"></textarea></div>
       <div class="field"><label>节点圆点颜色（同日共享圆点时作用于该日期圆点）</label><div class="color-picker" id="colorPicker"><button type="button" class="color-swatch" data-color="" title="按状态自动配色" aria-label="按状态自动配色" style="background:linear-gradient(135deg,#27AE60 0 20%,#2F80ED 20% 40%,#7f8a98 40% 60%,#E0A800 60% 80%,#D92D20 80%)"></button><button type="button" class="color-swatch" data-color="#27AE60" style="background:#27AE60" aria-label="绿色"></button><button type="button" class="color-swatch" data-color="#2F80ED" style="background:#2F80ED" aria-label="蓝色"></button><button type="button" class="color-swatch" data-color="#7f8a98" style="background:#7f8a98" aria-label="灰色"></button><button type="button" class="color-swatch" data-color="#E0A800" style="background:#E0A800" aria-label="黄色，仅待确认"></button><button type="button" class="color-swatch" data-color="#D92D20" style="background:#D92D20" aria-label="红色"></button><input id="f_color" type="color" value="#7f8a98" title="选择自定义颜色" aria-label="选择自定义颜色" /><button type="button" id="pickColorBtn" class="muted">页面取色</button></div></div>
+      <div class="field"><label>节点文本框填充颜色</label><div class="color-picker" id="cardColorPicker"><button type="button" class="color-swatch" data-card-color="" title="恢复默认底色" aria-label="恢复默认底色" style="background:linear-gradient(135deg,#ffffff 0 50%,#f1f5f9 50%)"></button><button type="button" class="color-swatch" data-card-color="#FFFFFF" style="background:#FFFFFF" aria-label="白色"></button><button type="button" class="color-swatch" data-card-color="#F8FAFC" style="background:#F8FAFC" aria-label="浅灰色"></button><button type="button" class="color-swatch" data-card-color="#FFF7ED" style="background:#FFF7ED" aria-label="浅橙色"></button><button type="button" class="color-swatch" data-card-color="#EFF6FF" style="background:#EFF6FF" aria-label="浅蓝色"></button><button type="button" class="color-swatch" data-card-color="#F0FDF4" style="background:#F0FDF4" aria-label="浅绿色"></button><input id="f_card_color" type="color" value="#FFFFFF" title="选择自定义文本框颜色" aria-label="选择自定义文本框颜色" /><button type="button" id="pickCardColorBtn" class="muted">页面取色</button></div></div>
       <div class="actions">
         <button class="primary" id="saveBtn">保存修改</button>
         <button class="ghost" id="duplicateBtn">复制节点</button>
@@ -808,6 +809,10 @@ function editorColor(status,previousStatus){
   if(previousStatus&&status!==previousStatus&&color.toUpperCase()===statusColor(previousStatus).toUpperCase())return null;
   return color;
 }
+function editorCardColor(){
+  const color=document.getElementById('f_card_color')?.value||'';
+  return /^#[0-9a-f]{6}$/i.test(color)&&color.toUpperCase()!=='#FFFFFF'?color:null;
+}
 function parseDate(str){ if(!str) return null; const d = new Date(str+'T00:00:00'); return isNaN(d)?null:d; }
 function fmtDate(str){ if(!str) return '待定'; const d=parseDate(str); if(!d) return str; const m=d.getMonth()+1, day=d.getDate(); return `${m}/${String(day).padStart(2,'0')}`; }
 function fmtFull(str){ if(!str) return '日期待定'; const d=parseDate(str); if(!d) return str; return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`; }
@@ -893,6 +898,7 @@ function render(){
         const saved=extras.layouts[nodeKey(line.id,item.id)],autoLayout=document.body.classList.contains('auto-fit')&&!saved?v313AutoFitCardLayout(item,line,xmap,undefined,insets):null;
         const w=saved?.width||autoLayout?.width||156;
         card.style.width=w+'px';card.style.left=Math.max(LEFT+12,saved?saved.left+(Number.isFinite(saved.anchorX)?xmap[date]-saved.anchorX:0):xmap[date]-w/2)+'px';
+        if(item.cardColor)card.style.backgroundColor=item.cardColor;
         if(saved){card.dataset.manual='true';card.style.top=saved.top+'px';if(saved.height)card.style.minHeight=saved.height+'px';}
         const name=document.createElement('div');name.className='task-name';name.textContent=autoLayout?autoLayout.lines.join('\n'):item.title;
         const meta=document.createElement('div');meta.className='task-meta';meta.textContent=displayNodeId(line.id,item.id)+' · '+item.status;
@@ -1281,6 +1287,7 @@ function selectNode(lineId,id,isPending){
   document.getElementById('f_date').value = found.type==='node' ? (found.item.date || '') : '';
   document.getElementById('f_status').value = found.item.status || '未开始';
   document.getElementById('f_color').value = found.item.color || statusColor(found.item.status);
+  document.getElementById('f_card_color').value = found.item.cardColor || '#FFFFFF';
   document.getElementById('f_place').value = found.item.placement || 'above';
   document.getElementById('f_note').value = found.item.note || '';
   document.getElementById('f_note_short').value = found.item.note_short || '';
@@ -1290,6 +1297,7 @@ function resetNodeForm(){
  for(const id of ['f_id','f_title','f_date','f_note','f_note_short'])document.getElementById(id).value='';
  document.getElementById('f_status').value='未开始';
  document.getElementById('f_color').value=statusColor('未开始');
+  document.getElementById('f_card_color').value='#FFFFFF';
  document.getElementById('f_place').value='above';
 }
 function saveCurrent(){
@@ -1304,6 +1312,7 @@ function saveCurrent(){
     date: document.getElementById('f_date').value || null,
     status: document.getElementById('f_status').value,
     color: editorColor(document.getElementById('f_status').value,cur.item.status),
+    cardColor: editorCardColor(),
     placement: document.getElementById('f_place').value,
     note: document.getElementById('f_note').value.trim(),
     note_short: document.getElementById('f_note_short').value.trim(),
@@ -1351,6 +1360,7 @@ function addNode(){
   document.getElementById('f_date').value = '';
   document.getElementById('f_status').value = '未开始';
   document.getElementById('f_color').value = statusColor('未开始');
+  document.getElementById('f_card_color').value = '#FFFFFF';
   document.getElementById('f_place').value = 'above';
   document.getElementById('f_note').value = '';
   document.getElementById('f_note_short').value = '';
@@ -1365,6 +1375,7 @@ function saveNew(){
     date: document.getElementById('f_date').value || null,
     status: document.getElementById('f_status').value,
     color: editorColor(document.getElementById('f_status').value),
+    cardColor: editorCardColor(),
     placement: document.getElementById('f_place').value,
     note: document.getElementById('f_note').value.trim(),
     note_short: document.getElementById('f_note_short').value.trim(),
@@ -1525,8 +1536,12 @@ document.getElementById('f_line').addEventListener('change',event=>{
  id.value=displayLineLetter(event.target.value)+suffix;
 });
 document.querySelectorAll('.color-swatch').forEach(button=>button.addEventListener('click',()=>{
+  if(button.hasAttribute('data-card-color'))return;
   const color=button.dataset.color;
   document.getElementById('f_color').value=color||statusColor(document.getElementById('f_status').value);
+}));
+document.querySelectorAll('[data-card-color]').forEach(button=>button.addEventListener('click',()=>{
+  document.getElementById('f_card_color').value=button.dataset.cardColor||'#FFFFFF';
 }));
 document.getElementById('f_status').addEventListener('change',event=>{
   const color=document.getElementById('f_color');
@@ -1535,6 +1550,12 @@ document.getElementById('f_status').addEventListener('change',event=>{
 document.getElementById('pickColorBtn').addEventListener('click',async()=>{
   try{
     if(window.EyeDropper){const picked=await new EyeDropper().open();document.getElementById('f_color').value=picked.sRGBHex;}
+    else alert('当前浏览器不支持屏幕取色，请使用预设色块或颜色输入框。');
+  }catch(e){}
+});
+document.getElementById('pickCardColorBtn').addEventListener('click',async()=>{
+  try{
+    if(window.EyeDropper){const picked=await new EyeDropper().open();document.getElementById('f_card_color').value=picked.sRGBHex;}
     else alert('当前浏览器不支持屏幕取色，请使用预设色块或颜色输入框。');
   }catch(e){}
 });
