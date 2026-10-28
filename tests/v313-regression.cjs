@@ -148,6 +148,8 @@ assert.strictEqual(wrapApi.v313AvailableCardWidth(line, line.nodes[2], xmap, 420
 console.log('v3.13 balanced auto-fit regression: PASS');
 
 const importApi = load([
+  'addV315WorkingDays',
+  'applyV315Schedule',
   'v313IsoDate',
   'isV313WorkingDay',
   'addV313WorkingDays',

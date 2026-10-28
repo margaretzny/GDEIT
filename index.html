@@ -389,7 +389,7 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
 <div class="app">
   <div class="board">
     <div class="toolbar" id="mainToolbar">
-      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.14</span></h1></div>
+      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.15</span></h1></div>
       <div class="toolbar-primary">
         <div class="toolbar-module" aria-label="导入导出"><button class="secondary toolbar-menu-toggle" data-menu="fileMenu">导入/导出</button><div class="toolbar-menu" id="fileMenu">
           <label class="btn secondary" for="importFile">导入JSON</label><input id="importFile" type="file" accept="application/json" />
@@ -538,8 +538,47 @@ function applyV313BusinessMigration(targetState,extras={}){
  const keyMap=new Map();for(const line of lines)for(const item of [...(line.nodes||[]),...(line.pending||[])]){const oldKey=oldKeys.get(item);if(oldKey)keyMap.set(oldKey,`${line.id}:${item.id}`);}
  remapV313Extras(extras,keyMap);extras.businessMigrationVersion=313;return true;
 }
-function migrateImportedV313Payload(business,loadedExtras){applyV313BusinessMigration(business,loadedExtras);return {business,loadedExtras};}
-function buildV313DefaultData(lines){const state={lines:structuredClone(lines)};applyV313BusinessMigration(state,{});return state.lines;}
+// Provisional mainland calendar: https://www.chinamoney.com.cn/chinese/bbjjr/20251219/3254570.html
+function addV315WorkingDays(value,amount){
+ let date=new Date(v313IsoDate(value)+'T12:00:00Z'),remaining=amount;
+ while(remaining>0){
+  date.setUTCDate(date.getUTCDate()+1);
+  const iso=date.toISOString().slice(0,10),day=date.getUTCDay();
+  if(day!==0&&day!==6&&iso!=='2027-01-01'&&!(iso>='2027-02-05'&&iso<='2027-02-12'))remaining--;
+ }
+ return date.toISOString().slice(0,10);
+}
+function applyV315Schedule(targetState,savedExtras={}){
+ if(savedExtras.scheduleMigrationVersion>=315)return false;
+ const lines=targetState?.lines;if(!Array.isArray(lines))return false;
+ const order=savedExtras.lineOrder||['A','C','D','B','E'];
+ const target=lines.find(line=>line.id===order[4]);if(!target)return false;
+ const title='广晟集团完成欧晟揭阳评估结果备案审批';
+ const source=lines.find(line=>(line.nodes||[]).some(node=>node.title===title));
+ const prerequisite=source?.nodes.find(node=>node.title===title);if(!prerequisite?.date)return false;
+ if(source!==target){
+  const oldKey=`${source.id}:${prerequisite.id}`;
+  source.nodes=source.nodes.filter(node=>node!==prerequisite);
+  let suffix=1;while([...(target.nodes||[]),...(target.pending||[])].some(node=>node.id===target.id+String(suffix).padStart(2,'0')))suffix++;
+  prerequisite.id=target.id+String(suffix).padStart(2,'0');target.nodes.push(prerequisite);
+  remapV313Extras(savedExtras,new Map([[oldKey,`${target.id}:${prerequisite.id}`]]));
+  delete savedExtras.layouts?.[`${target.id}:${prerequisite.id}`];
+ }
+ const steps=[['开始挂牌披露公示',1],['产权交易竞价',9],['挂牌公示结束',10],['签署产权交易合同',10],['交易结果公告',4]];
+ let date=prerequisite.date;
+ for(const [index,[match,gap]] of steps.entries()){
+  date=addV315WorkingDays(date,gap);
+  const node=target.nodes.find(node=>node!==prerequisite&&v313TitleIncludes(node,match));if(!node)continue;
+  node.date=date;
+  if(index>=3){
+   const note=String(node.note||'').replace('2027年官方调休安排尚未公布，当前日期暂定','').replace(/^；|；$/g,'');
+   node.note=[note,'暂按中国货币网2027年预设节假日计算（春节2月5日至12日休息），待国务院正式调休通知复核'].filter(Boolean).join('；');
+  }
+ }
+ savedExtras.scheduleMigrationVersion=315;return true;
+}
+function migrateImportedV313Payload(business,loadedExtras){applyV313BusinessMigration(business,loadedExtras);applyV315Schedule(business,loadedExtras);return {business,loadedExtras};}
+function buildV313DefaultData(lines){const state={lines:structuredClone(lines)},savedExtras={};applyV313BusinessMigration(state,savedExtras);applyV315Schedule(state,savedExtras);return state.lines;}
 const LEGACY_DEFAULT_DATA = [{"id": "A", "name": "A线｜汇丰债务和解及共同前置工作", "color": "#2F80ED", "nodes": [{"id": "A00", "title": "整体退出请示授权", "date": "2026-10-30", "status": "进行中", "note": "已启动请示初稿，尚未正式取得授权", "placement": "above"}], "pending": [{"id": "A01", "title": "商定债务和解方案", "status": "进行中", "note": "已口头初步达成一致，待正式确认函"}, {"id": "A02", "title": "正式签署和解协议", "status": "未开始", "note": "签署日期待定"}, {"id": "A03", "title": "拟定最终协议初步条款", "status": "未开始", "note": "与汇丰正式签约同步启动"}, {"id": "A04", "title": "编制收购及处置方案", "status": "未开始", "note": "预计审批需2-3周"}, {"id": "A05", "title": "支付债务清偿款", "status": "未开始", "note": "按MoU及和解协议约定执行"}]}, {"id": "B", "name": "B线｜东江环保所持欧晟揭阳股权交易", "color": "#F2994A", "nodes": [{"id": "B01", "title": "运营管理服务协议", "date": "2026-09-30", "status": "已完成", "note": "已完成签署", "placement": "above"}, {"id": "B02", "title": "候选收渣单位签约", "date": "2026-10-23", "status": "进行中", "note": "正在磋商", "placement": "below"}, {"id": "B04", "title": "取得评估审计报告", "date": "2026-10-30", "status": "未开始", "note": "对应评估审计结果", "placement": "above"}, {"id": "B03", "title": "启动股权挂牌程序", "date": "2026-11-06", "status": "未开始", "note": "可同步启动内部审批流程", "placement": "below"}, {"id": "B05", "title": "挂牌信息披露", "date": "2026-11-20", "status": "未开始", "note": "含20个工作日公示要求", "placement": "above"}, {"id": "B06", "title": "组织产权交易竞价", "date": "2026-11-27", "status": "未开始", "note": "按披露方式组织竞价", "placement": "below"}, {"id": "B07", "title": "签署产权交易合同", "date": "2026-12-04", "status": "未开始", "note": "根据评估结果签署", "placement": "above"}, {"id": "B08", "title": "交易结果公告", "date": "2026-12-11", "status": "未开始", "note": "原计划公告期5个工作日", "placement": "below"}], "pending": []}, {"id": "C", "name": "C线｜欧绿保股权及德国资产交易、最终交割", "color": "#9B51E0", "nodes": [{"id": "C01", "title": "召开评估机构董事会", "date": "2026-09-30", "status": "已完成", "note": "已召开董事会", "placement": "above"}, {"id": "C02", "title": "正式委任评估机构", "date": "2026-10-23", "status": "进行中", "note": "待尾款支付后正式启动评估", "placement": "below"}, {"id": "C05", "title": "签署最终交易协议", "date": "2026-11-17", "status": "未开始", "note": "原计划11月17日，欧绿保曾暂定11月3日", "placement": "above"}, {"id": "C03", "title": "提交最终估值报告", "date": "2026-11-19", "status": "进行中", "note": "正式委任后约6周", "placement": "below"}, {"id": "C04", "title": "协议及公证文件对齐", "date": "2026-11-19", "status": "未开始", "note": "与估值报告节点接近", "placement": "above"}, {"id": "C06", "title": "反垄断合并控制申报", "date": "2026-11-19", "status": "未开始", "note": "提交申请，不代表获批", "placement": "below"}, {"id": "C07", "title": "电子集团审议收购", "date": "2026-11-26", "status": "未开始", "note": "预计1周", "placement": "above"}, {"id": "C08", "title": "广晟集团审议收购", "date": "2026-12-04", "status": "未开始", "note": "预计1周", "placement": "below"}, {"id": "C09", "title": "香港股权变更登记", "date": "2026-12-18", "status": "未开始", "note": "预计2周", "placement": "above"}, {"id": "C10", "title": "国资备案及产权登记", "date": "2027-01-15", "status": "未开始", "note": "顺利情况下约4-5周", "placement": "below"}, {"id": "C11", "title": "完成欧绿保退出交割", "date": "2027-01-30", "status": "未开始", "note": "支付转让款并完成交割", "placement": "above"}], "pending": []}, {"id": "D", "name": "D线｜评估审计及国资审批", "color": "#27AE60", "nodes": [{"id": "D01", "title": "确定评估机构及方案", "date": "2026-09-24", "status": "已完成", "note": "已完成", "placement": "above"}, {"id": "D02", "title": "完成评估审计选聘", "date": "2026-09-24", "status": "已完成", "note": "已启动并完成选聘", "placement": "below"}, {"id": "D03", "title": "预沟通及资料预审", "date": "2026-09-28", "status": "已完成", "note": "已沟通", "placement": "above"}, {"id": "D05", "title": "中介选聘结果备案", "date": "2026-10-16", "status": "未开始", "note": "可与评估同步进行", "placement": "below"}, {"id": "D04", "title": "评估审计机构进场", "date": "2026-10-19", "status": "已完成", "note": "已进场", "placement": "above"}, {"id": "D06", "title": "提交审计初稿", "date": "2026-10-19", "status": "未开始", "note": "事务所提交并沟通", "placement": "below"}, {"id": "D07", "title": "提交评估报告初稿", "date": "2026-10-23", "status": "未开始", "note": "评估机构提交", "placement": "above"}, {"id": "D08", "title": "组织评估专家评审", "date": "2026-10-26", "status": "未开始", "note": "是否需要评审待确认", "placement": "below"}, {"id": "D10", "title": "正式出具评估审计报告", "date": "2026-10-30", "status": "未开始", "note": "与公示先后顺序需关注", "placement": "above"}, {"id": "D09", "title": "评估结果公示", "date": "2026-11-09", "status": "未开始", "note": "10个工作日", "placement": "below"}, {"id": "D11", "title": "电子集团审议评估结果", "date": "2026-11-17", "status": "未开始", "note": "是否需要过会待确认", "placement": "above"}, {"id": "D12", "title": "广晟集团审议评估结果", "date": "2026-11-24", "status": "未开始", "note": "是否需要过会待确认", "placement": "below"}, {"id": "D13", "title": "签署德国资产转让协议", "date": "2026-12-01", "status": "未开始", "note": "与股权转让协议属一揽子安排", "placement": "above"}, {"id": "D14", "title": "签署香港股权转让协议", "date": "2026-12-01", "status": "未开始", "note": "与D13同期签署", "placement": "below"}], "pending": []}, {"id": "E", "name": "E线｜欧晟揭阳整体转让", "color": "#00A3A3", "nodes": [{"id": "E01", "title": "整体挂牌请示及审批", "date": "2026-10-30", "status": "未开始", "note": "完成三家方案对比上报集团", "placement": "above"}, {"id": "E02", "title": "预挂牌", "date": "2027-02-19", "status": "未开始", "note": "原计划公示20个工作日", "placement": "below"}, {"id": "E03", "title": "正式挂牌", "date": "2027-03-19", "status": "未开始", "note": "原计划公示20个工作日", "placement": "above"}, {"id": "E04", "title": "摘牌", "date": "2027-04-02", "status": "未开始", "note": "挂牌期满后安排", "placement": "below"}, {"id": "E05", "title": "电子集团审议转让", "date": "2027-04-09", "status": "未开始", "note": "需确认是否需要过会", "placement": "above"}, {"id": "E06", "title": "广晟集团审议转让", "date": "2027-04-16", "status": "未开始", "note": "需确认是否需要过会", "placement": "below"}, {"id": "E07", "title": "签署产权交易合同", "date": "2027-04-23", "status": "未开始", "note": "签署交易合同", "placement": "above"}, {"id": "E08", "title": "完成产权变更登记", "date": "2027-05-07", "status": "未开始", "note": "最终完成节点", "placement": "below"}], "pending": []}];
 const DEFAULT_DATA=buildV313DefaultData(LEGACY_DEFAULT_DATA);
 const STORAGE_KEY = 'ousheng-simple-timeline-v1';
@@ -553,6 +592,7 @@ if(!Array.isArray(extras.suppressedSameDate))extras.suppressedSameDate=[];
 function persistExtras(){localStorage.setItem(V6_STORAGE,JSON.stringify(extras));queueHistoryCommit();}
 let state=loadState();
 if(applyV313BusinessMigration(state,extras)){localStorage.setItem(STORAGE_KEY,JSON.stringify(state));persistExtras();}
+if(applyV315Schedule(state,extras)){localStorage.setItem(STORAGE_KEY,JSON.stringify(state));persistExtras();}
 const AUTO_FIT_GAP=28; // 至少保留约两个虚线点的视觉间距
 const LANE_GAP_MIN=8,LANE_GAP_MAX=200;
 extras.laneGaps ||= {};
@@ -1418,7 +1458,7 @@ function redoEdit(){
  editHistory.undo.push(editHistory.current);restoreHistory(editHistory.redo.pop());
 }
 function exportJson(){
- const backup={...state,formatVersion:4,extras:{layouts:extras.layouts,groups:extras.groups,suppressedSameDate:extras.suppressedSameDate,laneGaps:extras.laneGaps,autoFitProfile,businessMigrationVersion:extras.businessMigrationVersion},view:readView()};
+ const backup={...state,formatVersion:4,extras:{layouts:extras.layouts,groups:extras.groups,suppressedSameDate:extras.suppressedSameDate,laneGaps:extras.laneGaps,autoFitProfile,businessMigrationVersion:extras.businessMigrationVersion,scheduleMigrationVersion:extras.scheduleMigrationVersion},view:readView()};
  saveBlob(new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}),'ARHK-Timeline.json');
 }
 function validateBackup(data){
@@ -1444,7 +1484,7 @@ function validateBackup(data){
  if(!laneGaps||typeof laneGaps!=='object'||Array.isArray(laneGaps)||Object.entries(laneGaps).some(([id,gap])=>!lineOrder.includes(id)||!Number.isFinite(gap)||gap<LANE_GAP_MIN||gap>LANE_GAP_MAX))throw new Error('泳道间距设置无效');
  const profile=data.extras?.autoFitProfile||null;
  if(profile&&(!Number.isFinite(profile.cardWidth)||profile.cardWidth<156||profile.cardWidth>520||!Number.isFinite(profile.spacing)||profile.spacing<72||profile.spacing>460||!Number.isFinite(profile.laneGap)||profile.laneGap<14||profile.laneGap>72||!['original','alternate','compact'].includes(profile.placementMode)))throw new Error('自适应布局设置无效');
- return {layouts:Object.fromEntries(Object.entries(layouts).filter(([k])=>keys.has(k))),groups:groups.map(g=>[...new Set(g.filter(k=>keys.has(k)))]).filter(g=>g.length>1),suppressedSameDate:suppressedSameDate.filter(pair=>pair.split('|').every(k=>keys.has(k))),laneGaps,autoFitProfile:profile};
+ return {layouts:Object.fromEntries(Object.entries(layouts).filter(([k])=>keys.has(k))),groups:groups.map(g=>[...new Set(g.filter(k=>keys.has(k)))]).filter(g=>g.length>1),suppressedSameDate:suppressedSameDate.filter(pair=>pair.split('|').every(k=>keys.has(k))),laneGaps,autoFitProfile:profile,businessMigrationVersion:Number(data.extras?.businessMigrationVersion)||0,scheduleMigrationVersion:Number(data.extras?.scheduleMigrationVersion)||0};
 }
 function importJson(file){
  const reader=new FileReader();
