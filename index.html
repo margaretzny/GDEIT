@@ -368,6 +368,11 @@ body .side .node-tab.active{background:rgba(255,255,255,.98);color:#202124;borde
 .schedule-panel{padding:14px!important;background:rgba(255,255,255,.86)!important;border:1px solid rgba(70,78,92,.1)!important;border-radius:24px!important;box-shadow:0 8px 24px rgba(31,41,55,.06)!important;overflow-y:auto}
 .schedule-panel h3{margin:0 0 8px;font-size:17px}.schedule-panel .schedule-help{color:#667085;font-size:12px;line-height:1.5;margin:0 0 12px}.schedule-panel .schedule-summary{background:#f7f8fa;border:1px solid #e6e8ed;border-radius:12px;padding:9px 10px;font-size:12px;line-height:1.5;margin-bottom:10px}.schedule-panel .schedule-summary strong{color:#1d4ed8}.schedule-panel .schedule-preview{max-height:230px;overflow:auto;border:1px solid #e5e7eb;border-radius:10px;margin-top:8px}.schedule-panel table{border-collapse:collapse;width:100%;font-size:11px}.schedule-panel th,.schedule-panel td{padding:6px 5px;border-bottom:1px solid #eef0f4;text-align:left;vertical-align:top}.schedule-panel th{color:#667085;font-weight:650;position:sticky;top:0;background:#f8fafc}.schedule-panel .conflict{color:#b42318;background:#fff1f0}.schedule-panel .schedule-link-row{display:flex;gap:6px;align-items:center;margin-top:7px}.schedule-panel .schedule-link-row select,.schedule-panel .schedule-link-row input{min-width:0;flex:1;border:1px solid #d9dee7;border-radius:9px;padding:7px 6px;font:inherit}.schedule-panel .schedule-link-row input{max-width:72px}.schedule-panel .rule-box{border-top:1px solid #edf0f5;margin-top:12px;padding-top:10px}.schedule-panel .rule-box label{display:flex;align-items:center;gap:7px;font-size:12px;color:#4b5563;margin:6px 0}.schedule-panel .schedule-status{font-size:11px;color:#667085;line-height:1.45;margin-top:8px}
 body .side .relation-panel{background:rgba(255,255,255,.82)!important;border:1px solid rgba(70,78,92,.1)!important;border-radius:24px!important;box-shadow:0 8px 24px rgba(31,41,55,.06)!important;padding:18px!important}
+/* All three tabs share one full-height content area and one scrollbar. */
+body .side > .side-page{flex:1 1 0!important;min-height:0!important;width:100%;box-sizing:border-box;margin:0!important;padding:14px 2px 18px!important;border:0!important;border-radius:0!important;box-shadow:none!important;background:#fff!important;overflow-y:auto!important}
+body .side > .side-page:not(.active-side-page){display:none!important}
+body .side .node-tabs{flex:none;margin-bottom:0}
+body .side .schedule-preview{max-height:none;overflow:visible}
 body .side .relation-page-header .ghost{background:rgba(237,239,243,.9);color:#334155;border-color:rgba(70,78,92,.1)}
 body .side .actions button{border-radius:16px!important;padding:11px 16px!important}
 body .side .actions .primary{background:#0a84ff;color:#fff;box-shadow:0 5px 12px rgba(10,132,255,.2)}
@@ -391,7 +396,7 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
 <div class="app">
   <div class="board">
     <div class="toolbar" id="mainToolbar">
-      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.17</span></h1></div>
+      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.18</span></h1></div>
       <div class="toolbar-primary">
         <div class="toolbar-module" aria-label="导入导出"><button class="secondary toolbar-menu-toggle" data-menu="fileMenu">导入/导出</button><div class="toolbar-menu" id="fileMenu">
           <label class="btn secondary" for="importFile">导入JSON</label><input id="importFile" type="file" accept="application/json" />
@@ -723,10 +728,10 @@ function scheduleDownstream(key){
 }
 function scheduleSelectedKey(){return selected&&selected.id?nodeKey(selected.lineId,selected.id):'';}
 function scheduleUpdateSummary(){
- const key=scheduleSelectedKey(),summary=document.getElementById('scheduleSummary');if(!key){summary.textContent='尚未选择起始节点';return;}
- const found=scheduleFind(key);if(!found){summary.textContent='尚未选择起始节点';return;}
+ const key=scheduleSelectedKey(),summary=document.getElementById('scheduleSummary');if(!key){summary.textContent='尚未选择起始节点';delete summary.dataset.nodeKey;return;}
+ const found=scheduleFind(key);if(!found){summary.textContent='尚未选择起始节点';delete summary.dataset.nodeKey;return;}
  const fixed=found.item.fixedDate?' · 固定日期':'';summary.innerHTML=`<strong>${escapeHtml(displayNodeId(found.line.id,found.item.id))}</strong> ${escapeHtml(found.item.title||'未命名节点')}<br>${escapeHtml(found.line.name||found.line.id)} · 当前日期：${escapeHtml(found.item.date||'日期待定')}${fixed}`;
- const dateInput=document.getElementById('scheduleDate');if(document.activeElement!==dateInput)dateInput.value=found.item.date||'';
+ const dateInput=document.getElementById('scheduleDate');if(summary.dataset.nodeKey!==key){dateInput.value=found.item.date||'';summary.dataset.nodeKey=key;}
  document.getElementById('scheduleFixed').checked=!!found.item.fixedDate;
  const targets=document.getElementById('scheduleDependencyTarget');targets.innerHTML='<option value="">选择前置节点</option>'+scheduleAllNodes().filter(x=>x.key!==key&&x.item.date).map(x=>`<option value="${escapeHtml(x.key)}">${escapeHtml(displayNodeId(x.line.id,x.item.id))} · ${escapeHtml(x.item.title||'')}</option>`).join('');
  const links=scheduleDependenciesFor(key);document.getElementById('scheduleDependencies').innerHTML=links.length?links.map(link=>{const f=scheduleFind(link.from);return `前置：${escapeHtml(f?.item?.title||link.from)} · 间隔 ${Number(link.lag)||0} 个工作日 <button type="button" class="muted schedule-remove-link" data-link="${escapeHtml(link.from+'>'+link.to)}">移除</button>`}).join('<br>'):'尚未设置前置任务';
@@ -790,7 +795,7 @@ function updateAssociationUI(){
  if(!associationSelection.size)wrap.textContent='尚未选择节点';
 }
 function startAssociation(){
- associationMode=true; associationSelection.clear();
+ associationMode=true;
  toggleSidebar(false);
  switchNodeTab('relation');
  requestAnimationFrame(()=>{render();updateAssociationUI()});
@@ -801,19 +806,16 @@ function stopAssociation(){
  updateAssociationUI();render();
 }
 function switchNodeTab(tab){
- const relation=tab==='relation',schedule=tab==='schedule';
- document.getElementById('addNodeTab').classList.toggle('active',!relation);
- document.getElementById('relationTab').classList.toggle('active',relation);
- document.getElementById('scheduleTab').classList.toggle('active',schedule);
- document.getElementById('addNodeTab').setAttribute('aria-selected',String(!relation));
- document.getElementById('relationTab').setAttribute('aria-selected',String(relation));
- document.getElementById('scheduleTab').setAttribute('aria-selected',String(schedule));
- document.getElementById('nodeEditorView').classList.toggle('active-side-page',!relation);
- document.getElementById('relationPanel').classList.toggle('active-side-page',relation);
- document.getElementById('schedulePanel').classList.toggle('active-side-page',schedule);
- document.getElementById('relationPanel').style.display=relation?'block':'none';
- document.getElementById('schedulePanel').style.display=schedule?'block':'none';
- if(schedule)scheduleUpdateSummary();
+ const tabs={add:['addNodeTab','nodeEditorView'],relation:['relationTab','relationPanel'],schedule:['scheduleTab','schedulePanel']};
+ if(!tabs[tab])return;
+ for(const [name,[buttonId,panelId]] of Object.entries(tabs)){
+  const active=name===tab,button=document.getElementById(buttonId),panel=document.getElementById(panelId);
+  button.classList.toggle('active',active);
+  button.setAttribute('aria-selected',String(active));
+  panel.classList.toggle('active-side-page',active);
+  panel.style.display=active?'block':'none';
+ }
+ if(tab==='schedule')scheduleUpdateSummary();
 }
 function saveRelation(){
  const ids=[...associationSelection];
@@ -1638,7 +1640,7 @@ document.getElementById('importFile').addEventListener('change', (e)=>{ const f=
 document.getElementById('relationConfirm').onclick=saveRelation;
 document.getElementById('relationRemove').onclick=removeRelation;
 document.getElementById('relationCancel').onclick=stopAssociation;
-document.getElementById('scheduleTab').onclick=()=>{associationMode=false;toggleSidebar(false);switchNodeTab('schedule');scheduleUpdateSummary();};
+document.getElementById('scheduleTab').onclick=()=>{associationMode=false;toggleSidebar(false);switchNodeTab('schedule');};
 document.getElementById('schedulePreviewBtn').onclick=scheduleBuildPreview;
 document.getElementById('scheduleApplyBtn').onclick=scheduleApplyPreview;
 document.getElementById('scheduleClearBtn').onclick=()=>{schedulePreviewState=null;scheduleRenderPreview();};
@@ -1941,7 +1943,7 @@ document.getElementById('highlightBtn').onclick=()=>{
  updateHighlightButton(on);saveView();scheduleConnectors();
 };
 document.getElementById('nodeMenuBtn').onclick=()=>{toggleSidebar(false);switchNodeTab('add');};
-document.getElementById('addNodeTab').onclick=()=>{switchNodeTab('add');addNode();};
+document.getElementById('addNodeTab').onclick=()=>{associationMode=false;switchNodeTab('add');if(!selected)addNode();};
 document.getElementById('relationTab').onclick=startAssociation;
 document.querySelectorAll('.toolbar-menu-toggle').forEach(button=>button.addEventListener('click',event=>{
  const module=event.currentTarget.closest('.toolbar-module');
