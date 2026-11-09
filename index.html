@@ -391,7 +391,7 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
 <div class="app">
   <div class="board">
     <div class="toolbar" id="mainToolbar">
-      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.16</span></h1></div>
+      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.17</span></h1></div>
       <div class="toolbar-primary">
         <div class="toolbar-module" aria-label="导入导出"><button class="secondary toolbar-menu-toggle" data-menu="fileMenu">导入/导出</button><div class="toolbar-menu" id="fileMenu">
           <label class="btn secondary" for="importFile">导入JSON</label><input id="importFile" type="file" accept="application/json" />
@@ -695,10 +695,10 @@ function scheduleWorkingDay(value){
 }
 function scheduleLoadMainlandCalendar(){
  const confirmed={
-  '2026':['2026-01-01','2026-02-16','2026-02-17','2026-02-18','2026-04-04','2026-04-05','2026-04-06','2026-05-01','2026-05-04','2026-05-05','2026-06-19','2026-06-20','2026-06-21','2026-09-25','2026-09-26','2026-09-27','2026-10-01','2026-10-02','2026-10-03','2026-10-04','2026-10-05','2026-10-06','2026-10-07'],
-  '2027':[]
- },workdays={'2026':['2026-02-14','2026-02-28','2026-05-09','2026-09-20','2026-10-10'],'2027':[]};
- extras.calendar={holidays:confirmed,workdays,updatedAt:'内置中国内地年度安排（2027 年尚待正式公布）'};persistExtras();document.getElementById('scheduleStatus').textContent='日历：已载入 2026 年中国内地节假日与调休安排；2027 年尚未公布，按周一至周五估算。';if(schedulePreviewState){schedulePreviewState=null;scheduleRenderPreview();}
+  '2026':['2026-01-01','2026-01-02','2026-01-03','2026-02-15','2026-02-16','2026-02-17','2026-02-18','2026-02-19','2026-02-20','2026-02-21','2026-02-22','2026-02-23','2026-04-04','2026-04-05','2026-04-06','2026-05-01','2026-05-02','2026-05-03','2026-05-04','2026-05-05','2026-06-19','2026-06-20','2026-06-21','2026-09-25','2026-09-26','2026-09-27','2026-10-01','2026-10-02','2026-10-03','2026-10-04','2026-10-05','2026-10-06','2026-10-07'],
+  '2027':['2027-01-01','2027-01-02','2027-01-03','2027-02-05','2027-02-06','2027-02-07','2027-02-08','2027-02-09','2027-02-10','2027-02-11','2027-02-12','2027-02-13','2027-04-03','2027-04-04','2027-04-05','2027-05-01','2027-05-02','2027-05-03','2027-05-04','2027-05-05','2027-06-09','2027-09-15','2027-10-01','2027-10-02','2027-10-03','2027-10-04','2027-10-05','2027-10-06','2027-10-07']
+ },workdays={'2026':['2026-01-04','2026-02-14','2026-02-28','2026-05-09','2026-09-20','2026-10-10'],'2027':['2027-01-31','2027-02-14','2027-05-08','2027-09-26','2027-10-09']};
+ extras.calendar={holidays:confirmed,workdays,updatedAt:'国务院办公厅 2026/2027 年部分节假日安排'};persistExtras();document.getElementById('scheduleStatus').textContent='日历：已载入国务院办公厅发布的 2026、2027 年中国内地节假日与调休安排。';if(schedulePreviewState){schedulePreviewState=null;scheduleRenderPreview();}
 }
 function scheduleAddDays(value,amount){
  const iso=scheduleIso(value);if(!iso)return '';
