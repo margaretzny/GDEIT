@@ -365,6 +365,8 @@ body .side button{font:inherit;border:1px solid transparent;border-radius:14px;p
 body .side button:hover{transform:translateY(-1px)}
 body .side .node-tab{border-radius:18px 18px 0 0;padding:10px 18px;background:rgba(226,229,235,.82);color:#687386;box-shadow:none}
 body .side .node-tab.active{background:rgba(255,255,255,.98);color:#202124;border:1px solid rgba(80,88,102,.14);border-bottom-color:rgba(255,255,255,.98);box-shadow:0 -2px 10px rgba(31,41,55,.03)}
+.schedule-panel{padding:14px!important;background:rgba(255,255,255,.86)!important;border:1px solid rgba(70,78,92,.1)!important;border-radius:24px!important;box-shadow:0 8px 24px rgba(31,41,55,.06)!important;overflow-y:auto}
+.schedule-panel h3{margin:0 0 8px;font-size:17px}.schedule-panel .schedule-help{color:#667085;font-size:12px;line-height:1.5;margin:0 0 12px}.schedule-panel .schedule-summary{background:#f7f8fa;border:1px solid #e6e8ed;border-radius:12px;padding:9px 10px;font-size:12px;line-height:1.5;margin-bottom:10px}.schedule-panel .schedule-summary strong{color:#1d4ed8}.schedule-panel .schedule-preview{max-height:230px;overflow:auto;border:1px solid #e5e7eb;border-radius:10px;margin-top:8px}.schedule-panel table{border-collapse:collapse;width:100%;font-size:11px}.schedule-panel th,.schedule-panel td{padding:6px 5px;border-bottom:1px solid #eef0f4;text-align:left;vertical-align:top}.schedule-panel th{color:#667085;font-weight:650;position:sticky;top:0;background:#f8fafc}.schedule-panel .conflict{color:#b42318;background:#fff1f0}.schedule-panel .schedule-link-row{display:flex;gap:6px;align-items:center;margin-top:7px}.schedule-panel .schedule-link-row select,.schedule-panel .schedule-link-row input{min-width:0;flex:1;border:1px solid #d9dee7;border-radius:9px;padding:7px 6px;font:inherit}.schedule-panel .schedule-link-row input{max-width:72px}.schedule-panel .rule-box{border-top:1px solid #edf0f5;margin-top:12px;padding-top:10px}.schedule-panel .rule-box label{display:flex;align-items:center;gap:7px;font-size:12px;color:#4b5563;margin:6px 0}.schedule-panel .schedule-status{font-size:11px;color:#667085;line-height:1.45;margin-top:8px}
 body .side .relation-panel{background:rgba(255,255,255,.82)!important;border:1px solid rgba(70,78,92,.1)!important;border-radius:24px!important;box-shadow:0 8px 24px rgba(31,41,55,.06)!important;padding:18px!important}
 body .side .relation-page-header .ghost{background:rgba(237,239,243,.9);color:#334155;border-color:rgba(70,78,92,.1)}
 body .side .actions button{border-radius:16px!important;padding:11px 16px!important}
@@ -389,7 +391,7 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
 <div class="app">
   <div class="board">
     <div class="toolbar" id="mainToolbar">
-      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.15</span></h1></div>
+      <div class="toolbar-title"><h1>欧晟项目退出时间线 <span class="english">ARHK Timeline</span><span class="version-badge" id="appVersion">v3.16</span></h1></div>
       <div class="toolbar-primary">
         <div class="toolbar-module" aria-label="导入导出"><button class="secondary toolbar-menu-toggle" data-menu="fileMenu">导入/导出</button><div class="toolbar-menu" id="fileMenu">
           <label class="btn secondary" for="importFile">导入JSON</label><input id="importFile" type="file" accept="application/json" />
@@ -419,7 +421,7 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
     </div>
   </div>
   <aside class="side" id="editSide"><button id="edgeToggle" type="button" aria-label="收起编辑栏" title="收起或展开编辑栏">◀</button>
-    <div class="node-tabs" role="tablist" aria-label="节点设置"><button id="addNodeTab" class="node-tab active" role="tab" aria-selected="true">新增节点</button><button id="relationTab" class="node-tab" role="tab" aria-selected="false">关联节点</button></div>
+    <div class="node-tabs" role="tablist" aria-label="节点设置"><button id="addNodeTab" class="node-tab active" role="tab" aria-selected="true">新增节点</button><button id="relationTab" class="node-tab" role="tab" aria-selected="false">关联节点</button><button id="scheduleTab" class="node-tab" role="tab" aria-selected="false">联动排期</button></div>
     <div id="nodeEditorView" class="side-page active-side-page"><h2>节点编辑</h2>
     <div class="tip">这是简易版时间流程图：每个节点只显示“预计完成时间点”。没有填完成日期的任务会放在对应线路的“待定事项”里。</div>
     <div id="emptyState" class="footer-note">请先点击左侧任一节点或“新增节点”。</div>
@@ -458,6 +460,21 @@ body .rail-row .line-title-editor{width:100%;min-width:0;border:1px solid #cbd5e
       <p>点击左侧多个日期圆点或任务文字框选择节点。选中项以金黄色高亮；点击已选项可取消选择。</p>
       <div id="relationSelection" class="relation-tags">尚未选择节点</div>
       <div class="actions"><button id="relationConfirm" class="primary">确定关联</button><button id="relationRemove" class="danger">解除选中节点之间的关联</button><button id="relationCancel" class="muted">退出关联编辑</button></div>
+    </section>
+    <section id="schedulePanel" style="display:none" class="schedule-panel side-page">
+      <h3>联动排期</h3>
+      <p class="schedule-help">先在画布上选择起始节点，再设置新日期。系统按中国内地工作日计算并先生成预览，确认后一次性应用。</p>
+      <div id="scheduleSummary" class="schedule-summary">尚未选择起始节点</div>
+      <div class="field"><label for="scheduleDate">新完成日期</label><input id="scheduleDate" type="date" /></div>
+      <div class="field"><label for="scheduleScope">联动范围</label><select id="scheduleScope"><option value="current">仅当前节点</option><option value="line">本线路后续节点</option><option value="deps">所有依赖节点（含跨线路）</option></select></div>
+      <div class="field"><label><input id="scheduleAllowEarly" type="checkbox" /> 允许后续任务同步提前</label></div>
+      <div class="field"><label><input id="scheduleFixed" type="checkbox" /> 将当前节点设为固定日期</label></div>
+      <div class="field"><label>为当前节点添加前置任务（工作日间隔）</label><div class="schedule-link-row"><select id="scheduleDependencyTarget"><option value="">选择前置节点</option></select><input id="scheduleDependencyLag" type="number" min="0" max="5000" value="0" aria-label="工作日间隔" /><button id="scheduleAddDependency" class="muted" type="button">添加</button></div></div>
+      <div id="scheduleDependencies" class="schedule-status">尚未设置前置任务</div>
+      <div id="schedulePreview" class="schedule-preview" hidden></div>
+      <div id="scheduleStatus" class="schedule-status">日历：按周一至周五计算；已配置的法定节假日与调休会自动跳过或计入。</div>
+      <div class="actions"><button id="schedulePreviewBtn" class="primary">预览调整</button><button id="scheduleApplyBtn" class="primary" disabled>应用全部调整</button><button id="scheduleClearBtn" class="muted">清除预览</button></div>
+      <div class="rule-box"><details open><summary>排期规则与日历</summary><p class="schedule-status">普通周末不计入工作日；法定节假日不计入；调休上班日计入。未来尚未公布的年度按周一至周五估算，并在预览中提示。</p><button id="scheduleCalendarBtn" class="muted" type="button">载入已确认的中国内地日历</button></details></div>
     </section>
     <div class="legend">
       <div class="legend-item"><span class="swatch" style="background:#27AE60"></span> 已完成</div>
@@ -590,6 +607,10 @@ let editHistory=null,historyQueued=false,historyGesture=false,autoFitRunning=fal
 let extras=(()=>{try{return JSON.parse(localStorage.getItem(V6_STORAGE))||{}}catch(e){return {}}})();
 extras.layouts ||= {};extras.groups ||= [];
 if(!Array.isArray(extras.suppressedSameDate))extras.suppressedSameDate=[];
+extras.dependencies ||= [];
+extras.calendar ||= {holidays:{},workdays:{},updatedAt:'内置工作日规则'};
+if(!extras.calendar.holidays||typeof extras.calendar.holidays!=='object')extras.calendar.holidays={};
+if(!extras.calendar.workdays||typeof extras.calendar.workdays!=='object')extras.calendar.workdays={};
 function persistExtras(){localStorage.setItem(V6_STORAGE,JSON.stringify(extras));queueHistoryCommit();}
 let state=loadState();
 if(applyV313BusinessMigration(state,extras)){localStorage.setItem(STORAGE_KEY,JSON.stringify(state));persistExtras();}
@@ -665,6 +686,84 @@ function nodeKey(line,id){return line+':'+id;}
 function splitNodeKey(key){const at=key.indexOf(':');return [key.slice(0,at),key.slice(at+1)];}
 function relationPairKey(a,b){return [a,b].sort().join('|');}
 function sameDateSuppressed(a,b){return extras.suppressedSameDate.includes(relationPairKey(a,b));}
+function scheduleIso(value){return /^\d{4}-\d{2}-\d{2}$/.test(String(value||''))?String(value):'';}
+function scheduleWorkingDay(value){
+ const iso=scheduleIso(value);if(!iso)return false;
+ const d=new Date(iso+'T12:00:00Z'),day=d.getUTCDay(),year=iso.slice(0,4);
+ const holidays=new Set(extras.calendar?.holidays?.[year]||[]),special=new Set(extras.calendar?.workdays?.[year]||[]);
+ return special.has(iso)||(day!==0&&day!==6&&!holidays.has(iso));
+}
+function scheduleLoadMainlandCalendar(){
+ const confirmed={
+  '2026':['2026-01-01','2026-02-16','2026-02-17','2026-02-18','2026-04-04','2026-04-05','2026-04-06','2026-05-01','2026-05-04','2026-05-05','2026-06-19','2026-06-20','2026-06-21','2026-09-25','2026-09-26','2026-09-27','2026-10-01','2026-10-02','2026-10-03','2026-10-04','2026-10-05','2026-10-06','2026-10-07'],
+  '2027':[]
+ },workdays={'2026':['2026-02-14','2026-02-28','2026-05-09','2026-09-20','2026-10-10'],'2027':[]};
+ extras.calendar={holidays:confirmed,workdays,updatedAt:'内置中国内地年度安排（2027 年尚待正式公布）'};persistExtras();document.getElementById('scheduleStatus').textContent='日历：已载入 2026 年中国内地节假日与调休安排；2027 年尚未公布，按周一至周五估算。';if(schedulePreviewState){schedulePreviewState=null;scheduleRenderPreview();}
+}
+function scheduleAddDays(value,amount){
+ const iso=scheduleIso(value);if(!iso)return '';
+ const d=new Date(iso+'T12:00:00Z'),step=Number(amount)>=0?1:-1;let remaining=Math.abs(Number(amount)||0);
+ while(remaining){d.setUTCDate(d.getUTCDate()+step);const next=d.toISOString().slice(0,10);if(scheduleWorkingDay(next))remaining--;}
+ return d.toISOString().slice(0,10);
+}
+function scheduleWorkdayDiff(from,to){
+ const a=scheduleIso(from),b=scheduleIso(to);if(!a||!b||a===b)return 0;
+ const step=a<b?1:-1;let d=new Date(a+'T12:00:00Z'),count=0;
+ while(d.toISOString().slice(0,10)!==b){d.setUTCDate(d.getUTCDate()+step);if(scheduleWorkingDay(d.toISOString().slice(0,10)))count+=step;}
+ return count;
+}
+function scheduleFind(key){const [lineId,id]=splitNodeKey(key);return findItem(lineId,id);}
+function scheduleKeyExists(key){return !!scheduleFind(key);}
+function scheduleAllNodes(){return state.lines.flatMap(line=>[...(line.nodes||[]),...(line.pending||[])].map(item=>({line,item,key:nodeKey(line.id,item.id)})));}
+function scheduleDependenciesFor(key){return (extras.dependencies||[]).filter(link=>link.to===key&&scheduleKeyExists(link.from)&&scheduleKeyExists(link.to));}
+function scheduleDownstream(key){
+ const result=[],seen=new Set([key]),queue=[key];
+ while(queue.length){const current=queue.shift();for(const link of extras.dependencies||[]){if(link.from!==current||seen.has(link.to)||!scheduleKeyExists(link.to))continue;seen.add(link.to);result.push(link.to);queue.push(link.to);}}
+ return result;
+}
+function scheduleSelectedKey(){return selected&&selected.id?nodeKey(selected.lineId,selected.id):'';}
+function scheduleUpdateSummary(){
+ const key=scheduleSelectedKey(),summary=document.getElementById('scheduleSummary');if(!key){summary.textContent='尚未选择起始节点';return;}
+ const found=scheduleFind(key);if(!found){summary.textContent='尚未选择起始节点';return;}
+ const fixed=found.item.fixedDate?' · 固定日期':'';summary.innerHTML=`<strong>${escapeHtml(displayNodeId(found.line.id,found.item.id))}</strong> ${escapeHtml(found.item.title||'未命名节点')}<br>${escapeHtml(found.line.name||found.line.id)} · 当前日期：${escapeHtml(found.item.date||'日期待定')}${fixed}`;
+ const dateInput=document.getElementById('scheduleDate');if(document.activeElement!==dateInput)dateInput.value=found.item.date||'';
+ document.getElementById('scheduleFixed').checked=!!found.item.fixedDate;
+ const targets=document.getElementById('scheduleDependencyTarget');targets.innerHTML='<option value="">选择前置节点</option>'+scheduleAllNodes().filter(x=>x.key!==key&&x.item.date).map(x=>`<option value="${escapeHtml(x.key)}">${escapeHtml(displayNodeId(x.line.id,x.item.id))} · ${escapeHtml(x.item.title||'')}</option>`).join('');
+ const links=scheduleDependenciesFor(key);document.getElementById('scheduleDependencies').innerHTML=links.length?links.map(link=>{const f=scheduleFind(link.from);return `前置：${escapeHtml(f?.item?.title||link.from)} · 间隔 ${Number(link.lag)||0} 个工作日 <button type="button" class="muted schedule-remove-link" data-link="${escapeHtml(link.from+'>'+link.to)}">移除</button>`}).join('<br>'):'尚未设置前置任务';
+}
+function scheduleBuildPreview(){
+ const key=scheduleSelectedKey(),found=scheduleFind(key),newDate=scheduleIso(document.getElementById('scheduleDate').value),scope=document.getElementById('scheduleScope').value;
+ if(!key||!found){alert('请先在画布上选择起始节点');return null;}if(!newDate){alert('请选择新的完成日期');return null;}
+ const original=found.item.date;if(!original){alert('起始节点没有当前完成日期，无法计算批量偏移');return null;}
+ const shift=scheduleWorkdayDiff(original,newDate),changes=new Map([[key,newDate]]),reasons=new Map([[key,'起始节点日期调整']]);
+ if(scope==='line'){
+   const lineNodes=(found.line.nodes||[]).filter(n=>n!==found.item&&n.date&&n.date>original).sort(nodeSort);
+   for(const item of lineNodes)changes.set(nodeKey(found.line.id,item.id),scheduleAddDays(item.date,shift)),reasons.set(nodeKey(found.line.id,item.id),'本线路后续节点保持原工作日偏移');
+ }
+ if(scope==='deps'){
+   for(const downstreamKey of scheduleDownstream(key)){
+     const downstream=scheduleFind(downstreamKey);if(!downstream?.item?.date)continue;
+     const links=scheduleDependenciesFor(downstreamKey),candidate=links.map(link=>{const parentDate=changes.get(link.from)||scheduleFind(link.from)?.item?.date;return parentDate?scheduleAddDays(parentDate,Number(link.lag)||0):''}).filter(Boolean);
+     if(candidate.length){const next=candidate.sort().at(-1);if(document.getElementById('scheduleAllowEarly').checked||next>downstream.item.date||downstreamKey===key)changes.set(downstreamKey,next);reasons.set(downstreamKey,'按前置任务与工作日间隔计算');}
+   }
+ }
+ const rows=[];for(const [changeKey,nextDate] of changes){const itemFound=scheduleFind(changeKey);if(!itemFound)continue;const item=itemFound.item,blocked=item.fixedDate||item.status==='已完成';const effective=blocked&&changeKey!==key?item.date:nextDate;rows.push({key:changeKey,line:itemFound.line,item,oldDate:item.date||'',newDate:effective,delta:scheduleWorkdayDiff(item.date,effective),reason:reasons.get(changeKey)||'',blocked,conflict:blocked&&effective!==nextDate});}
+ schedulePreviewState={key,scope,shift,rows,createdAt:Date.now()};scheduleRenderPreview();return schedulePreviewState;
+}
+let schedulePreviewState=null;
+function scheduleRenderPreview(){
+ const wrap=document.getElementById('schedulePreview');if(!schedulePreviewState?.rows?.length){wrap.hidden=true;wrap.innerHTML='';document.getElementById('scheduleApplyBtn').disabled=true;return;}
+ wrap.hidden=false;wrap.innerHTML='<table><thead><tr><th>排除</th><th>节点</th><th>原日期 → 新日期</th><th>工作日</th><th>说明</th></tr></thead><tbody>'+schedulePreviewState.rows.map((row,index)=>`<tr class="${row.conflict?'conflict':''}"><td><input type="checkbox" data-schedule-exclude="${index}" ${row.excluded?'checked':''} ${row.conflict?'disabled':''} aria-label="排除该节点"></td><td>${escapeHtml(displayNodeId(row.line.id,row.item.id))}<br>${escapeHtml(row.item.title||'')}</td><td>${escapeHtml(row.oldDate||'待定')} → ${escapeHtml(row.newDate||'待定')}</td><td>${row.delta>0?'+':''}${row.delta}</td><td>${row.conflict?'固定或已完成，无法移动':escapeHtml(row.reason)}</td></tr>`).join('')+'</tbody></table>';
+ wrap.querySelectorAll('[data-schedule-exclude]').forEach(input=>input.addEventListener('change',event=>{schedulePreviewState.rows[Number(event.target.dataset.scheduleExclude)].excluded=event.target.checked;document.getElementById('scheduleApplyBtn').disabled=schedulePreviewState.rows.some(row=>row.conflict)||!schedulePreviewState.rows.some(row=>!row.excluded&&row.newDate!==row.oldDate);}));
+ document.getElementById('scheduleApplyBtn').disabled=schedulePreviewState.rows.some(row=>row.conflict)||!schedulePreviewState.rows.some(row=>!row.excluded&&row.newDate!==row.oldDate);
+}
+function scheduleApplyPreview(){
+ if(!schedulePreviewState)return;const snapshot=schedulePreviewState;for(const row of snapshot.rows){if(row.excluded||row.conflict||!row.newDate||row.newDate===row.oldDate)continue;row.item.date=row.newDate;}const found=scheduleFind(snapshot.key);if(found){found.item.fixedDate=document.getElementById('scheduleFixed').checked||found.item.fixedDate||false;}for(const line of state.lines)sortLineNodes(line);saveState();schedulePreviewState=null;scheduleRenderPreview();scheduleUpdateSummary();render();alert('联动排期已应用');
+}
+function scheduleAddDependency(){
+ const to=scheduleSelectedKey(),from=document.getElementById('scheduleDependencyTarget').value,lag=Math.max(0,Number(document.getElementById('scheduleDependencyLag').value)||0);if(!to||!from||from===to){alert('请选择有效的前置节点');return;}if(scheduleDownstream(to).includes(from)){alert('不能建立循环依赖');return;}const old=scheduleDependenciesFor(to).find(link=>link.from===from);if(old)old.lag=lag;else extras.dependencies.push({from,to,lag});persistExtras();schedulePreviewState=null;scheduleRenderPreview();scheduleUpdateSummary();
+}
+function scheduleRemoveDependency(event){const encoded=event.target.dataset.link;if(!encoded)return;const [from,to]=encoded.split('>');extras.dependencies=extras.dependencies.filter(link=>!(link.from===from&&link.to===to));persistExtras();scheduleUpdateSummary();}
 function clearSuppressedPairs(ids){
  const selected=new Set(ids);
  extras.suppressedSameDate=extras.suppressedSameDate.filter(pair=>{
@@ -702,14 +801,19 @@ function stopAssociation(){
  updateAssociationUI();render();
 }
 function switchNodeTab(tab){
- const relation=tab==='relation';
+ const relation=tab==='relation',schedule=tab==='schedule';
  document.getElementById('addNodeTab').classList.toggle('active',!relation);
  document.getElementById('relationTab').classList.toggle('active',relation);
+ document.getElementById('scheduleTab').classList.toggle('active',schedule);
  document.getElementById('addNodeTab').setAttribute('aria-selected',String(!relation));
  document.getElementById('relationTab').setAttribute('aria-selected',String(relation));
+ document.getElementById('scheduleTab').setAttribute('aria-selected',String(schedule));
  document.getElementById('nodeEditorView').classList.toggle('active-side-page',!relation);
  document.getElementById('relationPanel').classList.toggle('active-side-page',relation);
+ document.getElementById('schedulePanel').classList.toggle('active-side-page',schedule);
  document.getElementById('relationPanel').style.display=relation?'block':'none';
+ document.getElementById('schedulePanel').style.display=schedule?'block':'none';
+ if(schedule)scheduleUpdateSummary();
 }
 function saveRelation(){
  const ids=[...associationSelection];
@@ -1280,6 +1384,7 @@ function selectNode(lineId,id,isPending){
   if(document.body.classList.contains('editor-collapsed'))toggleSidebar(false);
   const found = findItem(lineId,id); if(!found) return;
   selected = {lineId,id,type:found.type};
+  if(document.getElementById('schedulePanel')?.classList.contains('active-side-page')){scheduleUpdateSummary();return;}
   emptyState.style.display='none'; editor.style.display='block';
   document.getElementById('f_id').value = displayNodeId(found.line.id,found.item.id);
   document.getElementById('f_line').value = found.line.id;
@@ -1397,6 +1502,7 @@ function moveReferences(oldKey,newKey,resetLayout=false){
  if(newKey&&oldKey!==newKey&&extras.layouts[oldKey]&&!resetLayout)extras.layouts[newKey]=extras.layouts[oldKey];
  if(oldKey!==newKey||resetLayout)delete extras.layouts[oldKey];
  extras.groups=extras.groups.map(g=>[...new Set(g.flatMap(k=>k===oldKey?(newKey?[newKey]:[]):[k]))]).filter(g=>g.length>1);
+ extras.dependencies=(extras.dependencies||[]).map(link=>({ ...link, from:link.from===oldKey?(newKey||''):link.from, to:link.to===oldKey?(newKey||''):link.to })).filter(link=>link.from&&link.to&&link.from!==link.to);
  persistExtras();
 }
 function readView(){return {spacing:Number(document.getElementById('spacingRange').value),font:Number(document.getElementById('fontRange').value),axisFont:Number(document.getElementById('axisFontRange').value),lineFont:Number(document.getElementById('lineFontRange').value),nodeFont:Number(document.getElementById('nodeFontRange').value),zoom:Number(document.getElementById('zoomRange').value),leftWidth:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--left-size'))||255,highlighted:document.body.classList.contains('highlighted'),editorCollapsed:document.body.classList.contains('editor-collapsed'),autoFit:document.body.classList.contains('auto-fit')};}
@@ -1469,7 +1575,7 @@ function redoEdit(){
  editHistory.undo.push(editHistory.current);restoreHistory(editHistory.redo.pop());
 }
 function exportJson(){
- const backup={...state,formatVersion:4,extras:{layouts:extras.layouts,groups:extras.groups,suppressedSameDate:extras.suppressedSameDate,laneGaps:extras.laneGaps,autoFitProfile,businessMigrationVersion:extras.businessMigrationVersion,scheduleMigrationVersion:extras.scheduleMigrationVersion},view:readView()};
+ const backup={...state,formatVersion:5,extras:{layouts:extras.layouts,groups:extras.groups,suppressedSameDate:extras.suppressedSameDate,laneGaps:extras.laneGaps,autoFitProfile,dependencies:extras.dependencies||[],calendar:extras.calendar||{},businessMigrationVersion:extras.businessMigrationVersion,scheduleMigrationVersion:extras.scheduleMigrationVersion},view:readView()};
  saveBlob(new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}),'ARHK-Timeline.json');
 }
 function validateBackup(data){
@@ -1484,7 +1590,7 @@ function validateBackup(data){
      if(dated&&(!/^\d{4}-\d{2}-\d{2}$/.test(n.date||'')||!parseDate(n.date)||fmtFull(n.date).replaceAll('.','-')!==n.date))throw new Error('节点日期无效：'+key);
    }
  }
- const layouts=data.extras?.layouts||{},groups=data.extras?.groups||[],suppressedSameDate=data.extras?.suppressedSameDate||[],laneGaps=data.extras?.laneGaps||{};
+ const layouts=data.extras?.layouts||{},groups=data.extras?.groups||[],suppressedSameDate=data.extras?.suppressedSameDate||[],laneGaps=data.extras?.laneGaps||{},dependencies=data.extras?.dependencies||[],calendar=data.extras?.calendar||{holidays:{},workdays:{}};
  if(!layouts||typeof layouts!=='object'||Array.isArray(layouts)||!Array.isArray(groups)||!Array.isArray(suppressedSameDate))throw new Error('布局或关联格式无效');
  for(const [key,v] of Object.entries(layouts)){
    if(!keys.has(key))continue;
@@ -1493,9 +1599,11 @@ function validateBackup(data){
  if(groups.some(g=>!Array.isArray(g)||g.some(k=>typeof k!=='string')))throw new Error('关联格式无效');
  if(suppressedSameDate.some(pair=>typeof pair!=='string'||pair.split('|').length!==2))throw new Error('解除关联格式无效');
  if(!laneGaps||typeof laneGaps!=='object'||Array.isArray(laneGaps)||Object.entries(laneGaps).some(([id,gap])=>!lineOrder.includes(id)||!Number.isFinite(gap)||gap<LANE_GAP_MIN||gap>LANE_GAP_MAX))throw new Error('泳道间距设置无效');
+ if(!Array.isArray(dependencies)||dependencies.some(link=>!link||typeof link.from!=='string'||typeof link.to!=='string'||link.from===link.to||!keys.has(link.from)||!keys.has(link.to)||!Number.isFinite(Number(link.lag))||Number(link.lag)<0||Number(link.lag)>5000))throw new Error('排期依赖格式无效');
+ if(!calendar||typeof calendar!=='object'||Array.isArray(calendar)||typeof calendar.holidays!=='object'||typeof calendar.workdays!=='object')throw new Error('工作日日历格式无效');
  const profile=data.extras?.autoFitProfile||null;
  if(profile&&(!Number.isFinite(profile.cardWidth)||profile.cardWidth<156||profile.cardWidth>520||!Number.isFinite(profile.spacing)||profile.spacing<72||profile.spacing>460||!Number.isFinite(profile.laneGap)||profile.laneGap<14||profile.laneGap>72||!['original','alternate','compact'].includes(profile.placementMode)))throw new Error('自适应布局设置无效');
- return {layouts:Object.fromEntries(Object.entries(layouts).filter(([k])=>keys.has(k))),groups:groups.map(g=>[...new Set(g.filter(k=>keys.has(k)))]).filter(g=>g.length>1),suppressedSameDate:suppressedSameDate.filter(pair=>pair.split('|').every(k=>keys.has(k))),laneGaps,autoFitProfile:profile,businessMigrationVersion:Number(data.extras?.businessMigrationVersion)||0,scheduleMigrationVersion:Number(data.extras?.scheduleMigrationVersion)||0};
+ return {layouts:Object.fromEntries(Object.entries(layouts).filter(([k])=>keys.has(k))),groups:groups.map(g=>[...new Set(g.filter(k=>keys.has(k)))]).filter(g=>g.length>1),suppressedSameDate:suppressedSameDate.filter(pair=>pair.split('|').every(k=>keys.has(k))),laneGaps,autoFitProfile:profile,dependencies:dependencies.map(link=>({from:link.from,to:link.to,lag:Number(link.lag)||0})),calendar:{holidays:calendar.holidays||{},workdays:calendar.workdays||{},updatedAt:String(calendar.updatedAt||'导入数据')},businessMigrationVersion:Number(data.extras?.businessMigrationVersion)||0,scheduleMigrationVersion:Number(data.extras?.scheduleMigrationVersion)||0};
 }
 function importJson(file){
  const reader=new FileReader();
@@ -1524,12 +1632,21 @@ document.getElementById('saveBtn').onclick = ()=>{ if(selected?.type==='new') sa
 document.getElementById('duplicateBtn').onclick = duplicateCurrent;
 document.getElementById('deleteBtn').onclick = deleteCurrent;
 document.getElementById('cancelBtn').onclick = clearSelection;
-document.getElementById('resetBtn').onclick = ()=>{ if(confirm('确认恢复为默认数据？当前浏览器内的修改将丢失。')){ state = structuredClone({lines: DEFAULT_DATA}); extras={layouts:{},groups:[],suppressedSameDate:[],laneGaps:{}};autoFitProfile=null;saveState();persistExtras();restoreView({spacing:105,font:14,axisFont:14,lineFont:14,nodeFont:14,zoom:100,leftWidth:255});stopAssociation();render();clearSelection();initEditorLines(); }};
+document.getElementById('resetBtn').onclick = ()=>{ if(confirm('确认恢复为默认数据？当前浏览器内的修改将丢失。')){ state = structuredClone({lines: DEFAULT_DATA}); extras={layouts:{},groups:[],suppressedSameDate:[],laneGaps:{},dependencies:[],calendar:{holidays:{},workdays:{},updatedAt:'内置工作日规则'}};autoFitProfile=null;saveState();persistExtras();restoreView({spacing:105,font:14,axisFont:14,lineFont:14,nodeFont:14,zoom:100,leftWidth:255});stopAssociation();render();clearSelection();initEditorLines(); }};
 document.getElementById('exportBtn').onclick = exportJson;
 document.getElementById('importFile').addEventListener('change', (e)=>{ const f=e.target.files[0]; if(f) importJson(f); e.target.value='';});
 document.getElementById('relationConfirm').onclick=saveRelation;
 document.getElementById('relationRemove').onclick=removeRelation;
 document.getElementById('relationCancel').onclick=stopAssociation;
+document.getElementById('scheduleTab').onclick=()=>{associationMode=false;toggleSidebar(false);switchNodeTab('schedule');scheduleUpdateSummary();};
+document.getElementById('schedulePreviewBtn').onclick=scheduleBuildPreview;
+document.getElementById('scheduleApplyBtn').onclick=scheduleApplyPreview;
+document.getElementById('scheduleClearBtn').onclick=()=>{schedulePreviewState=null;scheduleRenderPreview();};
+document.getElementById('scheduleAddDependency').onclick=scheduleAddDependency;
+document.getElementById('scheduleCalendarBtn').onclick=scheduleLoadMainlandCalendar;
+document.getElementById('scheduleDependencies').addEventListener('click',scheduleRemoveDependency);
+document.getElementById('scheduleDate').addEventListener('input',()=>{if(schedulePreviewState){schedulePreviewState=null;scheduleRenderPreview();}});
+document.getElementById('scheduleFixed').addEventListener('change',()=>{const found=scheduleFind(scheduleSelectedKey());if(found){found.item.fixedDate=document.getElementById('scheduleFixed').checked;saveState();}});
 initEditorLines();restoreView(extras.view);render();
 document.getElementById('f_line').addEventListener('change',event=>{
  const id=document.getElementById('f_id'),suffix=id.value.replace(/^[A-E]/,'');
